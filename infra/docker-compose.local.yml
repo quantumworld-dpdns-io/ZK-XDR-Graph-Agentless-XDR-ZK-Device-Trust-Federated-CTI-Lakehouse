@@ -163,6 +163,36 @@ services:
       - redis
       - neo4j
 
+  # DDI Connector - DNS security events
+  connector-ddi:
+    build:
+      context: .
+      dockerfile: services/connectors/ddi/Dockerfile
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - redis
+
+  # WAF Connector - Web application firewall events
+  connector-waf:
+    build:
+      context: .
+      dockerfile: services/connectors/waf/Dockerfile
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - redis
+
+  # Mail Connector - Email security events
+  connector-mail:
+    build:
+      context: .
+      dockerfile: services/connectors/mail/Dockerfile
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - redis
+
   # Analyst Copilot - Python RAG/LLM service
   analyst-copilot:
     build:
