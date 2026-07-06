@@ -1,0 +1,22 @@
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+COPY apps/api-gateway/go.mod apps/api-gateway/go.sum ./
+RUN go mod download
+
+COPY apps/api-gateway/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build -o /api-gateway ./cmd/server
+
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+COPY --from=builder /api-gateway .
+COPY apps/api-gateway/internal/ ./internal/
+
+EXPOSE 8080
+
+CMD ["./api-gateway"]

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zk-xdr-graph.io/schemas/zk-proof.schema.json",
+  "title": "ZK Proof",
+  "description": "Zero-knowledge proof record for device attestation",
+  "type": "object",
+  "required": ["proof_id", "proof_system", "circuit_type"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "asset_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "proof_id": {
+      "type": "string",
+      "description": "Unique proof identifier"
+    },
+    "proof_system": {
+      "type": "string",
+      "enum": ["noir", "risc0", "groth16", "plonk"]
+    },
+    "circuit_type": {
+      "type": "string",
+      "enum": [
+        "device_attestation",
+        "manufacturer_provenance",
+        "root_trust",
+        "endpoint_identity",
+        "posture_compliance"
+      ]
+    },
+    "proof_data": {
+      "type": "object",
+      "description": "Proof witness and public inputs"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "generated", "verified", "failed", "expired"]
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "trust_score_delta": {
+      "type": "number",
+      "description": "Change in trust score after verification"
+    }
+  }
+}

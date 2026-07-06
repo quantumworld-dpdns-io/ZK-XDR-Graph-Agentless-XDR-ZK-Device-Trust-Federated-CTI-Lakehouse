@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zk-xdr-graph.io/schemas/asset.schema.json",
+  "title": "Asset",
+  "description": "Asset model for the ZK-XDR Graph platform",
+  "type": "object",
+  "required": ["name", "asset_type"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Asset identifier"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Tenant identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Asset name"
+    },
+    "asset_type": {
+      "type": "string",
+      "enum": ["endpoint", "iot", "server", "vdi", "cloud", "network", "mobile"],
+      "description": "Asset type"
+    },
+    "serial_number": {
+      "type": "string",
+      "description": "Device serial number"
+    },
+    "manufacturer": {
+      "type": "string",
+      "description": "Device manufacturer"
+    },
+    "model": {
+      "type": "string",
+      "description": "Device model"
+    },
+    "firmware_version": {
+      "type": "string",
+      "description": "Firmware version"
+    },
+    "os": {
+      "type": "string",
+      "description": "Operating system"
+    },
+    "ip_addresses": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IP addresses associated with this asset"
+    },
+    "mac_address": {
+      "type": "string",
+      "description": "MAC address"
+    },
+    "network_segment": {
+      "type": "string",
+      "description": "Network segment/VLAN"
+    },
+    "criticality": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "Asset criticality level"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "inactive", "quarantined", "decommissioned"],
+      "description": "Asset status"
+    },
+    "trust_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Device trust score"
+    }
+  }
+}

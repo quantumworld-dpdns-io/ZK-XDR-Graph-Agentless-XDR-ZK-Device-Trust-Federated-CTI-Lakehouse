@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zk-xdr-graph.io/schemas/xdr-event-v0.1.json",
+  "title": "ZK-XDR Event Envelope",
+  "description": "Unified event envelope for all telemetry sources in the ZK-XDR Graph platform",
+  "type": "object",
+  "required": ["event_id", "tenant_id", "source", "event_type", "severity", "observed_at"],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[a-zA-Z0-9_-]+$",
+      "description": "Unique event identifier"
+    },
+    "tenant_id": {
+      "type": "string",
+      "description": "Tenant identifier for multi-tenancy"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["ddi", "waf", "mail", "zk", "asset", "cti", "ad", "cve", "endpoint", "cloud"],
+      "description": "Event source system"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Event type in dot notation (e.g., dns.query.suspicious, waf.anomaly.detected)"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"],
+      "description": "Event severity level"
+    },
+    "asset_id": {
+      "type": "string",
+      "description": "Associated asset identifier"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Associated device identifier"
+    },
+    "identity_id": {
+      "type": "string",
+      "description": "Associated user/identity identifier"
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the event was observed"
+    },
+    "raw": {
+      "type": "object",
+      "description": "Raw event data from the source"
+    },
+    "normalized": {
+      "type": "object",
+      "description": "Normalized event data"
+    },
+    "risk": {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Risk score (0-100)"
+        },
+        "factors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Risk factors contributing to the score"
+        }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "collector": {
+          "type": "string",
+          "description": "Collector service that produced this event"
+        },
+        "pipeline": {
+          "type": "string",
+          "description": "Pipeline this event was processed through"
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Schema version"
+        }
+      }
+    },
+    "mitre": {
+      "type": "object",
+      "properties": {
+        "tactics": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "MITRE ATT&CK tactics"
+        },
+        "techniques": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "MITRE ATT&CK techniques"
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

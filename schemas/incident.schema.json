@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zk-xdr-graph.io/schemas/incident.schema.json",
+  "title": "Incident",
+  "description": "Security incident model for the ZK-XDR Graph platform",
+  "type": "object",
+  "required": ["title", "incident_type", "severity"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "title": {
+      "type": "string",
+      "description": "Incident title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Incident description"
+    },
+    "incident_type": {
+      "type": "string",
+      "enum": [
+        "suspicious_iot_beaconing",
+        "identity_compromise",
+        "api_abuse",
+        "ddos_attack",
+        "quishing_bec",
+        "malware_detection",
+        "data_exfiltration",
+        "lateral_movement",
+        "privilege_escalation"
+      ],
+      "description": "Type of incident"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "investigating", "contained", "resolved", "closed"]
+    },
+    "risk_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "description": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "source": { "type": "string" }
+        }
+      }
+    },
+    "mitre_tactics": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "mitre_techniques": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "assigned_to": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "playbook_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}

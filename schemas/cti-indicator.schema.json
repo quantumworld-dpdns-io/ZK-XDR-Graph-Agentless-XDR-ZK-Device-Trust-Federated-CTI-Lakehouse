@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zk-xdr-graph.io/schemas/cti-indicator.schema.json",
+  "title": "CTI Indicator",
+  "description": "Threat intelligence indicator model",
+  "type": "object",
+  "required": ["type", "value"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "indicator_id": {
+      "type": "string",
+      "description": "Unique indicator identifier"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "ip_address", "domain", "url", "file_hash_md5", "file_hash_sha1",
+        "file_hash_sha256", "email_address", "cve", "mutex", "registry_key",
+        "file_path", "user_agent", "certificate"
+      ]
+    },
+    "value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "confidence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "source": {
+      "type": "string"
+    },
+    "tlp": {
+      "type": "string",
+      "enum": ["white", "green", "amber", "red"],
+      "default": "amber"
+    },
+    "first_seen": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_seen": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "mitre_tactics": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "description": {
+      "type": "string"
+    }
+  }
+}
