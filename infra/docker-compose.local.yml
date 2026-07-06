@@ -149,6 +149,28 @@ services:
       - redis
       - clickhouse
 
+  # Correlation Engine - Multi-signal incident correlation
+  correlation-engine:
+    build:
+      context: .
+      dockerfile: services/correlation-engine/Dockerfile
+    environment:
+      REDIS_ADDR: redis:6379
+      CLICKHOUSE_DSN: "clickhouse://default:@clickhouse:9000/default"
+    depends_on:
+      - redis
+      - clickhouse
+
+  # SOAR Playbook Engine - Automated response actions
+  soar-playbook:
+    build:
+      context: .
+      dockerfile: services/soar-playbook/Dockerfile
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - redis
+
   # Asset Graph - Builds Neo4j graph from events
   asset-graph:
     build:
