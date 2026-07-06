@@ -193,6 +193,28 @@ services:
     depends_on:
       - redis
 
+  # CTI Lakehouse - Federated threat intelligence API
+  cti-lakehouse:
+    build:
+      context: .
+      dockerfile: services/cti-lakehouse/Dockerfile
+    ports:
+      - "8095:8095"
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - redis
+
+  # CTI Matcher - IoC matching service (consumes XDR events)
+  cti-matcher:
+    build:
+      context: .
+      dockerfile: services/cti-lakehouse/Dockerfile.matcher
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - redis
+
   # Analyst Copilot - Python RAG/LLM service
   analyst-copilot:
     build:
