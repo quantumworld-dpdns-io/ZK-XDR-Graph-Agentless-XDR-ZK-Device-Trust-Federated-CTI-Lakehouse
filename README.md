@@ -542,3 +542,725 @@ SOAR copilot
 最後產品定位可以定成：
 
 ZK-XDR Graph: an agentless, identity-aware XDR platform for IoT, SME, and hybrid-cloud SOC operations.
+
+---
+
+建議 Tech Stack 摘要
+Layer	建議
+Web Console	Next.js + React + TypeScript + Tailwind + shadcn/ui
+API Gateway	Go + Chi/Fiber + OpenAPI
+Worker / Collector	Go
+Analyst Copilot / RAG	Python + FastAPI + LlamaIndex/LangChain
+Event Stream	Redis Streams first；之後可升 Redpanda/Kafka
+Relational DB	PostgreSQL
+Graph DB	Neo4j
+Hot Analytics	ClickHouse
+Object Storage	MinIO
+Vector DB	Qdrant / Chroma
+Cache / Queue	Redis
+Observability	OpenTelemetry + Prometheus + Grafana + Loki
+Security Scan	Semgrep + Trivy + Syft + Grype
+Dockerfile 限制設計
+
+README 內已固定成 最多 4 個 custom Dockerfiles：
+
+docker/Dockerfile.web       # Next.js SOC console
+docker/Dockerfile.api       # Go API gateway
+docker/Dockerfile.worker    # Go collectors / normalizer / correlation / SOAR worker
+docker/Dockerfile.ai        # Python analyst copilot / RAG service
+
+其他全部用官方 image，不再寫 Dockerfile：
+
+postgres
+redis
+neo4j
+clickhouse
+minio
+qdrant
+redpanda/kafka
+grafana
+prometheus
+loki
+keycloak
+
+這個切法最適合後續生成 repo，因為架構清楚、面試好講，也不會變成 Dockerfile 地獄。
+
+
+---
+# ZK-XDR Graph Platform
+
+> Agentless XDR + ZK Device Trust + Federated CTI Lakehouse + SOAR Playbooks
+
+`ZK-XDR Graph` is an identity-aware XDR/SOC automation platform that combines zero-knowledge device identity, agentless asset-risk graphing, DNS/WAF/email telemetry, CTI lakehouse enrichment, and SOAR playbooks into a unified incident investigation workflow.
+
+The goal is not to replace a full kernel-level EDR agent. The goal is to provide an **EDR-compatible XDR context layer** that helps SOC/MDR teams correlate endpoint, IoT, identity, network, API, email, vulnerability, and threat-intelligence signals.
+
+---
+
+## 1. Product Thesis
+
+Modern SOC teams usually have too many alerts and not enough trustworthy asset context. A suspicious DNS query, WAF anomaly, phishing report, stale certificate, or vulnerable IoT camera is often investigated in isolation.
+
+`ZK-XDR Graph` treats **device trust** as a first-class security primitive.
+
+Instead of asking only:
+
+```text
+What happened?
+```
+
+The platform asks:
+
+```text
+Which asset did it happen on?
+Is that asset trusted?
+Can its identity be verified?
+What user, IP, DNS behavior, CVE exposure, and CTI context are connected to it?
+What response action is safe and auditable?
+```
+
+---
+
+## 2. Core Concept
+
+```text
+ZK Device Identity
+  -> Asset Trust Graph
+  -> Telemetry Correlation
+  -> CTI Enrichment
+  -> Risk Scoring
+  -> SOAR Recommendation
+  -> Evidence Chain
+```
+
+### Key Capabilities
+
+- Zero-knowledge device identity and compliance proof verification
+- Agentless device, user, AD/IAM, CVE, DNS, DHCP, and IPAM mapping
+- DNS / DHCP / IPAM telemetry analysis
+- WAF / API / DDoS log correlation
+- Email / BEC / quishing simulation and triage
+- Federated CTI ingestion and enrichment
+- XDR event normalization
+- Asset-risk graph visualization
+- SOAR playbook recommendation and approval workflow
+- SOC analyst copilot for explanation, summarization, and report generation
+
+---
+
+## 3. Integrated Modules
+
+This platform is designed as a productized integration layer for the following module families:
+
+| Module | Platform Role | Description |
+|---|---|---|
+| `zk-device-identity-saas` | Device Trust Root | Verifies endpoint, IoT, Matter, or OT device identity using ZK proof and attestation metadata. |
+| `agentless-security-compliance-graph` | Asset-Risk Graph | Maps devices, users, AD groups, CVEs, policy gaps, and compliance signals. |
+| `federated-threat-intel-lakehouse` | CTI + Event Lakehouse | Stores IOC, telemetry, incident history, vector embeddings, and long-term evidence. |
+| `api-ddos-mitigation-copilot` | API/WAF SOAR | Correlates API abuse, DDoS behavior, WAF events, and response actions. |
+| `ddi-security-graph` | Network Identity | Ingests DNS, DHCP, and IPAM telemetry to detect shadow assets and suspicious name resolution. |
+| `quishing-bec-mail-threat-lab` | Email Threat Layer | Generates and analyzes phishing, QR phishing, BEC, and awareness telemetry. |
+
+---
+
+## 4. High-Level Architecture
+
+```text
+┌────────────────────────────────────────────────────────────────────┐
+│                         SOC Console / Web UI                        │
+│  Asset Inventory | Incident Timeline | Graph View | CTI Search      │
+│  SOAR Playbooks | Evidence Chain | Analyst Copilot                 │
+└────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                            API Gateway                              │
+│  Auth | RBAC | Tenant Routing | REST API | WebSocket | Audit Logs   │
+└────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                    Detection / Reasoning Layer                      │
+│  Correlation Engine | Risk Scoring | CTI Enrichment | RAG Copilot   │
+│  Sigma-like Rules | SOAR Recommendation | Case Management          │
+└────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                     Identity + Asset Graph Layer                    │
+│  Device | User | AD Group | IP | Domain | CVE | ZK Proof | IOC      │
+└────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                             Data Plane                              │
+│  Redis Streams / Kafka | ClickHouse | Neo4j | MinIO | Vector DB     │
+└────────────────────────────────────────────────────────────────────┘
+                                  ▲
+                                  │
+┌────────────────────────────────────────────────────────────────────┐
+│                       Collectors / Connectors                       │
+│  ZK Attestation | DNS/DHCP/IPAM | WAF/API | Email | AD | CVE | CTI  │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 5. Suggested Tech Stack
+
+The stack is optimized for a serious portfolio-grade MVP while keeping deployment complexity controlled.
+
+### Application Layer
+
+| Layer | Recommended Stack | Reason |
+|---|---|---|
+| Web Console | Next.js, React, TypeScript, Tailwind CSS, shadcn/ui | Fast SOC dashboard development with strong UI ecosystem. |
+| Graph Visualization | React Flow, Cytoscape.js, or Sigma.js | Asset graph, attack path, device-domain-user-CVE relation view. |
+| API Gateway | Go, Chi/Fiber, OpenAPI | Good fit for security backend, event APIs, RBAC, and high-throughput services. |
+| Worker Services | Go | Collectors, normalizers, correlation, scoring, and playbook execution. |
+| AI/Copilot Service | Python, FastAPI, LlamaIndex or LangChain | RAG, CTI summarization, analyst report generation. |
+| ZK Verification | RISC Zero / Noir / mock verifier first | Start with verifier interface; replace mock with real proof verifier later. |
+
+### Data Plane
+
+| Purpose | Recommended Stack | MVP Choice |
+|---|---|---|
+| Event Stream | Redis Streams or Redpanda/Kafka | Redis Streams first; Redpanda/Kafka later. |
+| Relational Store | PostgreSQL | Tenants, users, cases, playbooks, audit logs. |
+| Graph Store | Neo4j | Fastest path for graph demo and Cypher queries. |
+| Hot Analytics | ClickHouse | High-volume security events and timeline queries. |
+| Object Store | MinIO | Raw logs, Parquet, CTI bundles, evidence files. |
+| Vector Store | Qdrant or Chroma | CTI RAG and similar incident search. |
+| Cache | Redis | Session cache, queues, rate limits, stream buffer. |
+
+### Security / SOC Standards
+
+| Area | Recommended Format / Tool |
+|---|---|
+| Event Normalization | Elastic Common Schema inspired schema, custom XDR event envelope |
+| SIEM Export | JSONL, CEF, LEEF, ECS-compatible JSON |
+| Detection Rules | Sigma-like YAML rules |
+| Malware / Hash IOC | STIX-like objects, YARA-compatible metadata |
+| CTI Sharing | STIX/TAXII-compatible export, signed threat reports |
+| SBOM | Syft |
+| Vulnerability Scan | Grype, Trivy |
+| SAST | Semgrep |
+| Observability | OpenTelemetry, Prometheus, Grafana, Loki |
+| Auth / IAM | Keycloak for enterprise mode; simple JWT for MVP |
+
+---
+
+## 6. Dockerfile Constraint
+
+This project intentionally uses **no more than 4 custom Dockerfiles**.
+
+### Custom Dockerfiles
+
+```text
+docker/Dockerfile.web       # Next.js SOC console
+docker/Dockerfile.api       # Go API gateway
+docker/Dockerfile.worker    # Go collectors, normalizer, correlation, SOAR worker
+docker/Dockerfile.ai        # Python FastAPI analyst copilot / RAG service
+```
+
+### Official Images Only
+
+The following services should use official or trusted upstream images directly in `docker-compose.local.yml`:
+
+```text
+postgres
+redis
+neo4j
+clickhouse
+minio
+qdrant
+redpanda or kafka
+grafana
+prometheus
+loki
+keycloak
+```
+
+Do **not** create extra Dockerfiles for databases, queues, observability tools, or object storage.
+
+---
+
+## 7. Repository Layout
+
+```text
+zk-xdr-graph-platform/
+├── apps/
+│   ├── console-web/                    # Next.js SOC console
+│   ├── api-gateway/                    # Go API gateway
+│   └── analyst-copilot/                # Python RAG / LLM service
+│
+├── services/
+│   ├── event-normalizer/               # Normalize telemetry into XDR event schema
+│   ├── asset-risk-graph/               # Asset graph writer and query service
+│   ├── zk-device-trust/                # ZK attestation verifier interface
+│   ├── cti-lakehouse/                  # IOC ingestion and enrichment
+│   ├── ddi-connector/                  # DNS/DHCP/IPAM telemetry connector
+│   ├── waf-api-connector/              # WAF/API/DDoS connector
+│   ├── mail-threat-connector/          # Quishing/BEC/email telemetry connector
+│   ├── correlation-engine/             # Multi-signal alert correlation
+│   └── soar-playbook-engine/           # Playbook runner and approval workflow
+│
+├── schemas/
+│   ├── xdr-event.schema.json
+│   ├── asset.schema.json
+│   ├── zk-proof.schema.json
+│   ├── cti-indicator.schema.json
+│   ├── incident.schema.json
+│   └── playbook.schema.json
+│
+├── detections/
+│   ├── sigma/
+│   ├── yara/
+│   └── correlation-rules/
+│
+├── playbooks/
+│   ├── low-trust-device-quarantine.yml
+│   ├── suspicious-dns-response.yml
+│   ├── api-abuse-rate-limit.yml
+│   ├── ddos-mitigation.yml
+│   └── quishing-bec-response.yml
+│
+├── examples/
+│   ├── demo-events/
+│   ├── demo-iocs/
+│   ├── demo-assets/
+│   └── attack-scenarios/
+│
+├── infra/
+│   ├── docker-compose.local.yml
+│   ├── docker-compose.observability.yml
+│   ├── k8s/
+│   └── terraform/
+│
+├── docker/
+│   ├── Dockerfile.web
+│   ├── Dockerfile.api
+│   ├── Dockerfile.worker
+│   └── Dockerfile.ai
+│
+├── docs/
+│   ├── architecture.md
+│   ├── threat-model.md
+│   ├── data-model.md
+│   ├── api-spec.md
+│   ├── soc-runbook.md
+│   └── resume-case-study.md
+│
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       ├── security-scan.yml
+│       └── docker-build.yml
+│
+├── Makefile
+├── README.md
+└── LICENSE
+```
+
+---
+
+## 8. XDR Event Envelope
+
+All telemetry should be normalized into a shared event envelope before detection and correlation.
+
+```json
+{
+  "event_id": "evt_01HX0000000000000000000000",
+  "tenant_id": "tenant_demo",
+  "source": "ddi",
+  "event_type": "dns.query.suspicious",
+  "severity": "medium",
+  "asset_id": "asset_iot_camera_042",
+  "device_id": "dev_iot_camera_042",
+  "identity_id": "user_finance_001",
+  "observed_at": "2026-07-06T13:00:00Z",
+  "raw": {
+    "query": "strange-domain.example",
+    "src_ip": "10.10.20.42"
+  },
+  "normalized": {
+    "domain": "strange-domain.example",
+    "src_ip": "10.10.20.42",
+    "network_segment": "finance-iot"
+  },
+  "risk": {
+    "score": 72,
+    "factors": [
+      "new_domain",
+      "low_device_trust",
+      "cti_match"
+    ]
+  },
+  "trace": {
+    "collector": "ddi-connector",
+    "pipeline": "redis-streams:xdr.events",
+    "schema_version": "xdr-event-v0.1"
+  }
+}
+```
+
+---
+
+## 9. Asset Graph Model
+
+Recommended initial graph model:
+
+```cypher
+(:Device)-[:HAS_IP]->(:IPAddress)
+(:Device)-[:QUERIED]->(:Domain)
+(:Device)-[:HAS_CVE]->(:CVE)
+(:Device)-[:OWNED_BY]->(:User)
+(:User)-[:MEMBER_OF]->(:ADGroup)
+(:Device)-[:HAS_ZK_PROOF]->(:ZKProof)
+(:Domain)-[:MATCHES_IOC]->(:ThreatIntel)
+(:Device)-[:GENERATED]->(:SecurityEvent)
+(:SecurityEvent)-[:PART_OF]->(:Incident)
+(:Incident)-[:TRIGGERED]->(:Playbook)
+```
+
+Example query:
+
+```cypher
+MATCH (d:Device)-[:QUERIED]->(domain:Domain)-[:MATCHES_IOC]->(ioc:ThreatIntel)
+WHERE d.trust_score < 60
+RETURN d.device_id, d.hostname, d.trust_score, domain.name, ioc.confidence
+ORDER BY ioc.confidence DESC;
+```
+
+---
+
+## 10. Device Trust Score
+
+A device trust score should not be a vague AI score. It should be explainable.
+
+```text
+device_trust_score =
+  identity_attestation_score
++ certificate_validity_score
++ firmware_integrity_score
++ network_behavior_score
++ vulnerability_exposure_score
++ identity_context_score
+- suspicious_activity_penalty
+```
+
+Example factors:
+
+| Factor | Signal |
+|---|---|
+| Identity Attestation | ZK proof verified or failed |
+| Certificate Validity | Matter DAC / PAI / PAA chain status |
+| Firmware Integrity | Firmware hash known or unknown |
+| Network Behavior | New domain, rare ASN, unusual DNS query pattern |
+| Vulnerability Exposure | CVE severity and exploitability |
+| Identity Context | Owner, AD group, privilege level |
+| Suspicious Penalty | CTI hit, phishing link, WAF anomaly, stale DHCP lease |
+
+---
+
+## 11. SOAR Playbook Example
+
+```yaml
+id: pb_low_trust_device_quarantine
+name: Low Trust Device Quarantine
+version: 0.1.0
+trigger:
+  event_type: zk.device.attestation.failed
+  risk_score_gte: 75
+conditions:
+  - field: asset.criticality
+    operator: in
+    value: ["high", "critical"]
+  - field: device.type
+    operator: in
+    value: ["iot", "vdi", "server"]
+actions:
+  - type: create_case
+    queue: soc-l2
+    title: "Low-trust device requires investigation"
+  - type: request_reattestation
+    target: "{{ device_id }}"
+  - type: firewall_tag
+    tag: quarantine
+approval:
+  required: true
+  approver_role: soc_manager
+```
+
+---
+
+## 12. Demo Scenario
+
+### Scenario Name
+
+```text
+Coordinated Quishing + IoT Beaconing + API Abuse
+```
+
+### Attack Story
+
+1. A user scans a QR phishing email.
+2. The phishing domain is later observed in DNS telemetry.
+3. An IoT camera in the finance network starts querying a suspicious domain.
+4. The same environment shows API credential stuffing attempts at the WAF layer.
+5. The IoT camera has an expired ZK attestation.
+6. CTI lakehouse enrichment finds a related IOC cluster.
+7. The correlation engine creates a high-risk incident.
+8. The SOAR engine recommends quarantine, domain block, WAF rate limit, and credential rotation.
+
+### Expected Incident Output
+
+```text
+Incident: Coordinated Quishing + IoT Beaconing + API Abuse
+Risk Score: 91 / 100
+
+Evidence:
+- QR phishing simulation triggered
+- DNS query to suspicious domain
+- Device ZK attestation expired
+- CTI match confidence: 82%
+- API abuse from related ASN
+- Asset belongs to finance network segment
+
+Recommended Actions:
+- Block suspicious domain
+- Quarantine IoT device
+- Rotate affected credentials
+- Enable WAF rate limit
+- Open SOC L2 case
+```
+
+---
+
+## 13. Local Development
+
+### Requirements
+
+```text
+Docker
+Docker Compose
+Node.js LTS
+Go stable release
+Python stable release
+Make
+```
+
+### Start Local Stack
+
+```bash
+make up
+```
+
+Equivalent command:
+
+```bash
+docker compose -f infra/docker-compose.local.yml up --build
+```
+
+### Seed Demo Data
+
+```bash
+make seed-demo
+```
+
+### Generate Demo Incident
+
+```bash
+make demo-attack
+```
+
+### Stop Local Stack
+
+```bash
+make down
+```
+
+---
+
+## 14. Proposed Services
+
+| Service | Port | Description |
+|---|---:|---|
+| `console-web` | `3000` | SOC dashboard |
+| `api-gateway` | `8080` | Main API and auth gateway |
+| `analyst-copilot` | `8090` | RAG and LLM analyst service |
+| `event-normalizer` | internal | Normalizes raw telemetry |
+| `correlation-engine` | internal | Creates incidents from correlated events |
+| `soar-playbook-engine` | internal | Runs playbooks with approval guardrails |
+| `postgres` | `5432` | Cases, tenants, playbooks, audit logs |
+| `redis` | `6379` | Streams, queue, cache |
+| `neo4j` | `7474/7687` | Asset graph |
+| `clickhouse` | `8123/9000` | Hot event analytics |
+| `minio` | `9000/9001` | Raw log and evidence storage |
+| `qdrant` | `6333` | Vector search for CTI and incident memory |
+
+---
+
+## 15. API Surface
+
+Initial API design:
+
+```text
+GET    /healthz
+GET    /api/v1/assets
+GET    /api/v1/assets/{asset_id}
+GET    /api/v1/devices/{device_id}/trust
+POST   /api/v1/events/ingest
+GET    /api/v1/incidents
+GET    /api/v1/incidents/{incident_id}
+POST   /api/v1/incidents/{incident_id}/assign
+POST   /api/v1/incidents/{incident_id}/close
+GET    /api/v1/cti/indicators
+POST   /api/v1/cti/lookup
+GET    /api/v1/playbooks
+POST   /api/v1/playbooks/{playbook_id}/dry-run
+POST   /api/v1/playbooks/{playbook_id}/execute
+POST   /api/v1/copilot/summarize-incident
+POST   /api/v1/copilot/recommend-playbook
+```
+
+---
+
+## 16. Detection Rules
+
+Example correlation rule:
+
+```yaml
+id: rule_low_trust_device_suspicious_dns
+name: Low Trust Device With Suspicious DNS
+severity: high
+window: 15m
+conditions:
+  all:
+    - event_type: dns.query.suspicious
+    - device.trust_score_lt: 60
+    - cti.domain_match: true
+output:
+  incident_type: suspicious_iot_beaconing
+  risk_score: 88
+  recommended_playbook: pb_low_trust_device_quarantine
+```
+
+---
+
+## 17. Development Roadmap
+
+### Phase 1: Skeleton Demo
+
+- Create monorepo structure
+- Implement shared XDR event schema
+- Build fake event generators
+- Build Next.js dashboard shell
+- Implement API gateway health and event ingestion endpoints
+- Show one incident timeline from seeded data
+
+### Phase 2: Working MVP
+
+- Redis Streams event bus
+- Event normalizer
+- Neo4j asset graph writer
+- ClickHouse event table
+- Basic risk scoring
+- Three correlation rules
+- Three SOAR playbooks
+- CTI lookup using Qdrant or local vector store
+
+### Phase 3: Portfolio-Grade Platform
+
+- ZK verifier interface
+- CTI RAG analyst copilot
+- STIX/TAXII-compatible import/export
+- Sigma-like rule import
+- SOAR approval workflow
+- Slack/webhook integration
+- Evidence chain and audit log
+- Multi-tenant RBAC
+- Demo video, architecture docs, and technical whitepaper
+
+---
+
+## 18. Security Guardrails
+
+The platform should avoid unsafe automation patterns.
+
+Recommended guardrails:
+
+- LLM cannot directly execute destructive actions.
+- Quarantine, block, and credential-reset playbooks require approval by default.
+- Every playbook execution must create an audit log.
+- Raw evidence must be stored immutably or append-only where possible.
+- CTI confidence should be visible and explainable.
+- Risk scoring must expose contributing factors.
+- All integrations should support dry-run mode.
+
+---
+
+## 19. What This Project Is Not
+
+This project is not:
+
+- A kernel-level EDR driver
+- A malware detonation sandbox
+- An offensive exploitation framework
+- A fully managed MDR service out of the box
+- A blockchain-first security product
+- An LLM-only SOC assistant
+
+This project is:
+
+- An XDR context and correlation layer
+- A ZK-backed device trust platform
+- An agentless asset-risk graph
+- A SOC automation and triage system
+- A portfolio-grade security architecture project
+
+---
+
+## 20. Resume Summary
+
+### English
+
+Designed and implemented `ZK-XDR Graph`, an XDR/SOC automation platform integrating zero-knowledge device identity, agentless asset-risk graphing, DNS/WAF/email telemetry, CTI lakehouse enrichment, and SOAR playbooks. Built an event-driven architecture with Go, Next.js, Redis Streams, Neo4j, ClickHouse, MinIO, and Python-based RAG services to correlate IoT/endpoint attestation, DNS behavior, API abuse, quishing/BEC events, and threat intelligence into risk-scored incident timelines with analyst recommendations and evidence tracking.
+
+### 中文
+
+設計並實作 `ZK-XDR Graph`，一套結合零知識裝置身分、agentless asset-risk graph、DNS/WAF/Email telemetry、CTI lakehouse 與 SOAR playbook 的 XDR/SOC 自動化平台。系統以 Go、Next.js、Redis Streams、Neo4j、ClickHouse、MinIO 與 Python RAG service 建構事件驅動管線，將 IoT/endpoint attestation、DNS 行為、API abuse、quishing/BEC 事件與威脅情資整合為具備 risk score、incident timeline、analyst recommendation 與 evidence tracking 的安全營運平台。
+
+---
+
+## 21. License
+
+Recommended license for portfolio and open-source collaboration:
+
+```text
+Apache-2.0
+```
+
+If the project later includes commercial SOC/MDR components, consider dual licensing.
+
+---
+
+## 22. Maintainer Notes
+
+Recommended first milestone:
+
+```text
+Milestone 0.1.0: Demo-Driven MVP
+
+Deliverables:
+- Docker Compose local stack
+- 4 custom Dockerfiles only
+- Seeded demo attack scenario
+- Asset graph page
+- Incident timeline page
+- Device trust score page
+- SOAR recommendation page
+- README screenshots
+- 3-minute demo video
+```
+
