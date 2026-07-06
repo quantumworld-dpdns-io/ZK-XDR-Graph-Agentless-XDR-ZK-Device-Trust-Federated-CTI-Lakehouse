@@ -1,0 +1,40 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-api:
+    name: Build API Gateway
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API Docker image
+        run: docker build -f docker/Dockerfile.api -t zdxdr-api:latest .
+
+  build-worker:
+    name: Build Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Worker Docker image
+        run: docker build -f docker/Dockerfile.worker -t zdxdr-worker:latest .
+
+  build-web:
+    name: Build Web Console
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Web Docker image
+        run: docker build -f docker/Dockerfile.web -t zdxdr-web:latest .
+
+  build-ai:
+    name: Build AI Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build AI Docker image
+        run: docker build -f docker/Dockerfile.ai -t zdxdr-ai:latest .

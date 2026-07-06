@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.next/
+out/
+
+# Go
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Rust
+target/
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.whl
+
+# Julia
+Manifest.toml
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Build artifacts
+*.log
+coverage/
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# MinIO
+data/minio/
+
+# Neo4j
+data/neo4j/
+
+# ClickHouse
+data/clickhouse/
+
+# Redis
+data/redis/
+
+# Qdrant
+data/qdrant/
