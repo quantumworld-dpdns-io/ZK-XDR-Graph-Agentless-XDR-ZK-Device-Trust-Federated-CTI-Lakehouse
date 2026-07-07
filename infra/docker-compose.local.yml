@@ -245,6 +245,14 @@ services:
     ports:
       - "8085:8085"
 
+  # Anomaly Detection - Julia statistical anomaly detection
+  anomaly-detection:
+    build:
+      context: .
+      dockerfile: services/anomaly-detection/Dockerfile
+    ports:
+      - "8086:8086"
+
   # Analyst Copilot - Python RAG/LLM service
   analyst-copilot:
     build:
