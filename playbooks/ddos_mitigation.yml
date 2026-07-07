@@ -1,0 +1,64 @@
+id: pb_004
+name: "DDoS Mitigation"
+description: "Activate DDoS mitigation measures and notify NOC"
+version: "1.0.0"
+status: active
+author: ZK-XDR Graph Platform
+tags:
+  - ddos
+  - mitigation
+  - noc
+
+trigger:
+  event_types:
+    - waf.ddos.detected
+    - waf.rate_limit.exceeded
+  severity:
+    - critical
+  min_event_count: 10
+  window: 5m
+
+conditions:
+  - field: event_count
+    operator: greater_than
+    value: 10
+    window: 5m
+
+actions:
+  - id: step_1
+    name: "Activate Aggressive Rate Limiting"
+    type: rate_limit
+    description: "Enable aggressive rate limiting"
+    parameters:
+      level: aggressive
+      threshold: 100
+      window: 60s
+      action: drop
+
+  - id: step_2
+    name: "Enable Geo-Blocking"
+    type: geo_block
+    description: "Block traffic from high-risk regions"
+    requires_approval: true
+    approval_timeout: 60s
+    parameters:
+      regions:
+        - high_risk
+      exception: internal_subnets
+
+  - id: step_3
+    name: "Notify NOC"
+    type: notify
+    description: "Page NOC for DDoS incident"
+    parameters:
+      channel: pagerduty
+      severity: critical
+      template: ddos_incident
+      escalation: immediate
+
+escalation:
+  if_not_resolved_in: 15m
+  escalate_to:
+    - noc_manager
+    - infrastructure_lead
+    - ciso

@@ -252,19 +252,46 @@ zk-xdr-graph/
 │   ├── asset-graph/          # Neo4j graph builder
 │   ├── correlation-engine/   # Incident correlation
 │   ├── soar-playbook/        # SOAR execution
-│   ├── connectors/           # DDI, WAF, Mail connectors
+│   ├── connectors/           # DDI, WAF, Mail connectors + detection logic
 │   ├── cti-lakehouse/        # CTI API + Matcher
 │   ├── analyst-copilot/      # AI RAG service
 │   ├── ioc-parsers/          # Rust IoC extraction
 │   ├── anomaly-detection/    # Julia anomaly detection
 │   └── ebpf-collectors/      # C eBPF probes
-├── circuits/                 # Noir ZK circuits
+├── circuits/                 # Noir ZK circuits (4 proof types)
 ├── infra/                    # Docker, Grafana, Prometheus
-├── schemas/                  # JSON schemas
-├── detections/               # Sigma/STIX rules
-├── playbooks/                # SOAR playbook definitions
-└── docs/                     # Architecture documentation
+├── schemas/                  # JSON schemas (6 schemas)
+├── detections/
+│   └── sigma/                # Sigma detection rules (5 MITRE techniques)
+├── playbooks/                # SOAR playbook YAMLs (5 playbooks)
+├── tests/robot/              # Robot Framework integration tests
+└── docs/
+    ├── ARCHITECTURE.md       # System architecture
+    ├── QUICKSTART.md         # Setup guide
+    └── CASE_STUDY.md         # Technical case study
 ```
+
+## Technical Deep Dive
+
+See [docs/CASE_STUDY.md](docs/CASE_STUDY.md) for architecture decisions, trade-offs, and lessons learned.
+
+## Detection Rules
+
+Sigma-format detection rules for MITRE ATT&CK techniques in `detections/sigma/`:
+- `phishing_t1566.yml` - Email phishing detection
+- `brute_force_t1110.yml` - Credential stuffing attacks
+- `ddos_t1499.yml` - DDoS attack patterns
+- `dga_t1568.yml` - DGA domain generation
+- `dns_beacon_t1071.yml` - DNS beaconing C2
+
+## SOAR Playbooks
+
+Formal playbook definitions in `playbooks/`:
+- `device_quarantine.yml` - ZK attestation failure response
+- `dns_response.yml` - Suspicious DNS blocking
+- `api_abuse.yml` - API rate limiting
+- `ddos_mitigation.yml` - DDoS response
+- `phishing_response.yml` - Phishing email quarantine
 
 ## License
 

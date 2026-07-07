@@ -1,0 +1,60 @@
+id: pb_003
+name: "API Abuse Rate Limit"
+description: "Rate limit abusive API clients and notify security team"
+version: "1.0.0"
+status: active
+author: ZK-XDR Graph Platform
+tags:
+  - api
+  - rate-limit
+  - abuse
+
+trigger:
+  event_types:
+    - waf.rate_limit.exceeded
+    - waf.auth.failure
+  severity:
+    - medium
+    - high
+
+conditions:
+  - field: event_count
+    operator: greater_than
+    value: 5
+    window: 10m
+
+actions:
+  - id: step_1
+    name: "Identify Source IP"
+    type: query
+    description: "Extract source IP from event"
+    parameters:
+      source: event
+      field: source_ip
+
+  - id: step_2
+    name: "Apply IP Block"
+    type: block_ip
+    description: "Temporarily block source IP at WAF"
+    requires_approval: true
+    approval_timeout: 120s
+    parameters:
+      ip: "{{event.source_ip}}"
+      duration: "1h"
+      reason: "API abuse - {{event_count}} violations in 10m"
+
+  - id: step_3
+    name: "Notify Security Team"
+    type: notify
+    description: "Alert security team via email"
+    parameters:
+      channel: email
+      severity: high
+      template: api_abuse
+      recipients:
+        - security-team@company.com
+
+escalation:
+  if_not_resolved_in: 30m
+  escalate_to:
+    - tier2_soc

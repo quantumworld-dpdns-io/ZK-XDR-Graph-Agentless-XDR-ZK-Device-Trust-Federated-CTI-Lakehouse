@@ -1,0 +1,29 @@
+title: Credential Stuffing Attack - T1110
+id: b7c8d9e0-f1a2-3b4c-5d6e-7f8a9b0c1d2e
+status: experimental
+description: |
+  Detects credential stuffing and brute force attacks via WAF authentication failures.
+  Maps to MITRE ATT&CK T1110 (Brute Force).
+references:
+  - https://attack.mitre.org/techniques/T1110/
+author: ZK-XDR Graph Platform
+date: 2025/01/15
+modified: 2025/01/15
+tags:
+  - attack.credential_access
+  - attack.t1110
+logsource:
+  product: xdr
+  service: waf
+  category: network
+detection:
+  selection_auth_failure:
+    event_type: waf.auth.failure
+  selection_rate_limit:
+    event_type: waf.rate_limit.exceeded
+  timeframe: 10min
+  condition: selection_auth_failure | count() by source_ip > 5
+falsepositives:
+  - Users forgetting passwords
+  - Service account authentication retries
+level: high

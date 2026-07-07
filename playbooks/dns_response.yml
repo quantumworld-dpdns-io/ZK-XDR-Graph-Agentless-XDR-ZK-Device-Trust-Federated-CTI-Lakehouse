@@ -1,0 +1,56 @@
+id: pb_002
+name: "Suspicious DNS Response"
+description: "Block suspicious domains at DNS level and enrich with CTI"
+version: "1.0.0"
+status: active
+author: ZK-XDR Graph Platform
+tags:
+  - dns
+  - block
+  - threat-intel
+
+trigger:
+  event_types:
+    - dns.query.suspicious
+    - dns.query.dga
+  severity:
+    - high
+    - critical
+
+conditions:
+  - field: confidence
+    operator: greater_than
+    value: 70
+
+actions:
+  - id: step_1
+    name: "Enrich Domain with CTI"
+    type: enrich
+    description: "Look up domain in CTI lakehouse for threat intelligence"
+    parameters:
+      source: cti-lakehouse
+      field: domain
+      value: "{{event.domain}}"
+
+  - id: step_2
+    name: "Block Domain at DNS Level"
+    type: block_domain
+    description: "Add domain to DNS sinkhole"
+    requires_approval: false
+    parameters:
+      method: dns_sinkhole
+      domain: "{{event.domain}}"
+      ttl: 86400
+      redirect_to: "127.0.0.1"
+
+  - id: step_3
+    name: "Log Block Action"
+    type: log
+    description: "Record the block action for audit"
+    parameters:
+      level: info
+      message: "Blocked domain {{event.domain}} (confidence: {{event.confidence}}%)"
+      category: dns_response
+
+escalation:
+  if_not_resolved_in: never

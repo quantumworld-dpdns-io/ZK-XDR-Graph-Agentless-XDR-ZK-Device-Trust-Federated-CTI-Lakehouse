@@ -1,0 +1,36 @@
+title: Phishing Email Detected - T1566
+id: d4f3e2a1-5b6c-4d7e-8f9a-0b1c2d3e4f5a
+status: experimental
+description: |
+  Detects phishing emails based on threat intelligence indicators and email analysis.
+  Maps to MITRE ATT&CK T1566 (Phishing).
+references:
+  - https://attack.mitre.org/techniques/T1566/
+author: ZK-XDR Graph Platform
+date: 2025/01/15
+modified: 2025/01/15
+tags:
+  - attack.initial_access
+  - attack.t1566
+logsource:
+  product: xdr
+  service: mail
+  category: email
+detection:
+  selection_phish_score:
+    event_type: email.phishing.detected
+    phish_score: '>0.7'
+  selection_spam_score:
+    event_type: email.phishing.detected
+    spam_score: '>0.8'
+  selection_suspicious_attachment:
+    event_type: email.suspicious_attachment
+    has_attachment: true
+  selection_auth_failure:
+    event_type: email.auth.failure
+    spf_pass: false
+  condition: selection_phish_score or selection_spam_score or selection_suspicious_attachment or selection_auth_failure
+falsepositives:
+  - Legitimate marketing emails with aggressive subject lines
+  - Newsletter subscriptions
+level: high

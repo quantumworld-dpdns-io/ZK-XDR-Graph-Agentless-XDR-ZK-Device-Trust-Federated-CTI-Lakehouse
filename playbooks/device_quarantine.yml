@@ -1,0 +1,79 @@
+id: pb_001
+name: "Low Trust Device Quarantine"
+description: "Automatically quarantine devices that fail ZK attestation"
+version: "1.0.0"
+status: active
+author: ZK-XDR Graph Platform
+tags:
+  - device-trust
+  - quarantine
+  - zk-attestation
+
+trigger:
+  event_types:
+    - zk.attestation.failed
+    - zk.proof.invalid
+  severity:
+    - critical
+    - high
+
+conditions:
+  - field: trust_score
+    operator: less_than
+    value: 40
+  - field: attestation_status
+    operator: equals
+    value: failed
+
+actions:
+  - id: step_1
+    name: "Query Device Trust Score"
+    type: query
+    description: "Retrieve current trust score and risk factors"
+    parameters:
+      source: clickhouse
+      query: "SELECT * FROM xdr_asset_trust WHERE asset_id = '{{incident.asset_id}}'"
+    timeout: 30s
+
+  - id: step_2
+    name: "Isolate Device from Network"
+    type: isolate_device
+    description: "Apply network ACL to isolate compromised device"
+    requires_approval: true
+    approval_timeout: 300s
+    parameters:
+      method: network_acl
+      target: "{{incident.asset_id}}"
+      duration: "24h"
+      scope: full_isolation
+
+  - id: step_3
+    name: "Notify SOC Team"
+    type: notify
+    description: "Send alert to SOC team via Slack"
+    parameters:
+      channel: slack
+      severity: critical
+      template: device_quarantine
+      recipients:
+        - "#soc-alerts"
+        - "@soc-oncall"
+
+  - id: step_4
+    name: "Create Evidence Snapshot"
+    type: snapshot
+    description: "Capture device state for forensic analysis"
+    parameters:
+      storage: minio
+      bucket: evidence
+      path: "quarantine/{{incident.asset_id}}/{{timestamp}}"
+      include:
+        - network_config
+        - running_processes
+        - open_connections
+
+escalation:
+  if_not_resolved_in: 1h
+  escalate_to:
+    - tier2_soc
+    - security_manager

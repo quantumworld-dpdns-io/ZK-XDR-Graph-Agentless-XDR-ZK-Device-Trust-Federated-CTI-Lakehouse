@@ -1,0 +1,29 @@
+title: DDoS Attack Detected - T1499
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+status: experimental
+description: |
+  Detects Distributed Denial of Service attacks via WAF rate limiting events.
+  Maps to MITRE ATT&CK T1499 (Endpoint Denial of Service).
+references:
+  - https://attack.mitre.org/techniques/T1499/
+author: ZK-XDR Graph Platform
+date: 2025/01/15
+modified: 2025/01/15
+tags:
+  - attack.impact
+  - attack.t1499
+logsource:
+  product: xdr
+  service: waf
+  category: network
+detection:
+  selection_rate_limit:
+    event_type: waf.rate_limit.exceeded
+  selection_ddos:
+    event_type: waf.ddos.detected
+  timeframe: 5min
+  condition: selection_rate_limit | count() by source_ip > 10
+falsepositives:
+  - Legitimate high-traffic events
+  - Load testing
+level: critical

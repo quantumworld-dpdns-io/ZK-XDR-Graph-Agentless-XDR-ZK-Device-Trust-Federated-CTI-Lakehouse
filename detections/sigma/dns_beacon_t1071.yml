@@ -1,0 +1,29 @@
+title: Suspicious DNS Beaconing - T1071.004
+id: d5e6f7a8-b9c0-1234-def0-56789abcdef0
+status: experimental
+description: |
+  Detects suspicious DNS beaconing patterns indicative of C2 communication over DNS.
+  Maps to MITRE ATT&CK T1071.004 (Application Layer Protocol: DNS).
+references:
+  - https://attack.mitre.org/techniques/T1071/004/
+author: ZK-XDR Graph Platform
+date: 2025/01/15
+modified: 2025/01/15
+tags:
+  - attack.command_and_control
+  - attack.t1071.004
+logsource:
+  product: xdr
+  service: ddi
+  category: network
+detection:
+  selection_suspicious:
+    event_type: dns.query.suspicious
+  selection_timeout:
+    event_type: dns.query.timeout
+  timeframe: 20min
+  condition: selection_suspicious | count() by source_ip > 5
+falsepositives:
+  - IoT devices with frequent DNS queries
+  - DNS-based load balancers
+level: high

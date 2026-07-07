@@ -1,0 +1,74 @@
+id: pb_005
+name: "Quishing/BEC Response"
+description: "Quarantine phishing emails and notify affected users"
+version: "1.0.0"
+status: active
+author: ZK-XDR Graph Platform
+tags:
+  - phishing
+  - bec
+  - email
+
+trigger:
+  event_types:
+    - email.phishing.detected
+    - email.suspicious_attachment
+  severity:
+    - high
+    - critical
+
+conditions:
+  - field: phish_score
+    operator: greater_than
+    value: 0.7
+  - field: spam_score
+    operator: greater_than
+    value: 0.8
+
+actions:
+  - id: step_1
+    name: "Quarantine Email"
+    type: quarantine_email
+    description: "Move suspicious email to quarantine"
+    parameters:
+      action: move_to_quarantine
+      notify_recipient: true
+      quarantine_duration: "30d"
+
+  - id: step_2
+    name: "Block Sender Domain"
+    type: block_sender
+    description: "Block sender domain for 7 days"
+    parameters:
+      domain: "{{event.from_domain}}"
+      duration: "7d"
+      scope: organization_wide
+
+  - id: step_3
+    name: "Notify Affected Users"
+    type: notify
+    description: "Send phishing warning to affected users"
+    parameters:
+      channel: email
+      template: phishing_warning
+      recipients: "{{event.to}}"
+      include_original: false
+
+  - id: step_4
+    name: "Create Incident Report"
+    type: report
+    description: "Generate PDF incident report"
+    parameters:
+      format: pdf
+      template: phishing_incident
+      include:
+        - email_headers
+        - ioc_list
+        - affected_users
+        - recommended_actions
+
+escalation:
+  if_not_resolved_in: 1h
+  escalate_to:
+    - soc_team
+    - it_security

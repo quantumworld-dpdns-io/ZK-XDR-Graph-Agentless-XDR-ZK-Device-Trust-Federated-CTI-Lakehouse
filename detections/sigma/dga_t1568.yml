@@ -1,0 +1,28 @@
+title: DGA Domain Activity - T1568.002
+id: c4d5e6f7-a8b9-0123-cdef-456789abcdef
+status: experimental
+description: |
+  Detects Domain Generation Algorithm (DGA) activity indicative of C2 communication.
+  Maps to MITRE ATT&CK T1568.002 (Dynamic Resolution: Domain Generation Algorithms).
+references:
+  - https://attack.mitre.org/techniques/T1568/002/
+author: ZK-XDR Graph Platform
+date: 2025/01/15
+modified: 2025/01/15
+tags:
+  - attack.command_and_control
+  - attack.t1568.002
+logsource:
+  product: xdr
+  service: ddi
+  category: network
+detection:
+  selection_dga:
+    event_type: dns.query.dga
+  selection_suspicious:
+    event_type: dns.query.suspicious
+  timeframe: 15min
+  condition: selection_dga | count() by source_ip > 3
+falsepositives:
+  - CDN domains with long random-looking subdomains
+level: critical
