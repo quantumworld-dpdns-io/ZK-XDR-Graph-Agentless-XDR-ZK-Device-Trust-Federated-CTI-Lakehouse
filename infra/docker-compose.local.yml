@@ -241,7 +241,7 @@ services:
   analyst-copilot:
     build:
       context: .
-      dockerfile: docker/Dockerfile.ai
+      dockerfile: services/analyst-copilot/Dockerfile
     ports:
       - "8090:8090"
     environment:
