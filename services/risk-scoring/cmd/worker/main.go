@@ -5,14 +5,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
+
+var (
+	eventsProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "risk_scoring_events_total", Help: "Total events processed"},
+		[]string{"source", "severity"},
+	)
+	trustScoresUpdated = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "risk_scoring_asset_trust_score", Help: "Asset trust scores"},
+		[]string{"asset_id", "asset_type"},
+	)
+	processingDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{Name: "risk_scoring_processing_duration_seconds", Help: "Event processing duration", Buckets: prometheus.DefBuckets},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(eventsProcessed, trustScoresUpdated, processingDuration)
+}
 
 type XDRRiskEvent struct {
 	EventID       string  `json:"event_id"`
@@ -135,13 +156,10 @@ func main() {
 	defer cancel()
 
 	// Connect to ClickHouse
-	chDSN := os.Getenv("CLICKHOUSE_DSN")
-	if chDSN == "" {
-		chDSN = "clickhouse://default:@localhost:9000/default"
-	}
+	chAddr := getEnv("CLICKHOUSE_ADDR", "localhost:9000")
 
 	chConn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: chDSN,
+		Addr: []string{chAddr},
 	})
 	if err != nil {
 		log.Fatalf("Failed to connect to ClickHouse: %v", err)
@@ -167,6 +185,16 @@ func main() {
 		log.Fatalf("Redis ping failed: %v", err)
 	}
 	log.Println("Connected to Redis")
+
+	// Start metrics server
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+		log.Println("Metrics server on :9091")
+		if err := http.ListenAndServe(":9091", nil); err != nil {
+			log.Printf("Metrics server error: %v", err)
+		}
+	}()
 
 	// Ensure consumer group
 	rdb.XGroupCreateMkStream(ctx, "xdr:events", "risk-scorers", "0")
@@ -230,6 +258,10 @@ func processEvents(ctx context.Context, rdb *redis.Client, chConn clickhouse.Con
 }
 
 func processEvent(ctx context.Context, chConn clickhouse.Conn, event XDRRiskEvent) error {
+	start := time.Now()
+	defer func() { processingDuration.Observe(time.Since(start).Seconds()) }()
+
+	eventsProcessed.WithLabelValues(event.Source, event.Severity).Inc()
 	// Insert event into ClickHouse
 	err := chConn.Exec(ctx, `
 		INSERT INTO xdr_events (
@@ -311,6 +343,7 @@ func updateAssetTrustScore(ctx context.Context, chConn clickhouse.Conn, event XD
 	}
 
 	log.Printf("Asset %s trust score updated: %d (%s)", event.AssetID, trustScore, status)
+	trustScoresUpdated.WithLabelValues(event.AssetID, event.AssetType).Set(float64(trustScore))
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sort"
@@ -12,8 +13,27 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
+
+var (
+	correlationChecks = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "correlation_engine_checks_total", Help: "Total correlation rule checks"},
+	)
+	incidentsCreated = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "correlation_engine_incidents_total", Help: "Incidents created by rule"},
+		[]string{"rule_name", "severity"},
+	)
+	correlationDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{Name: "correlation_engine_check_duration_seconds", Help: "Correlation check duration", Buckets: prometheus.DefBuckets},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(correlationChecks, incidentsCreated, correlationDuration)
+}
 
 type Event struct {
 	EventID        string `json:"event_id"`
@@ -120,13 +140,10 @@ func main() {
 	defer cancel()
 
 	// Connect to ClickHouse
-	chDSN := os.Getenv("CLICKHOUSE_DSN")
-	if chDSN == "" {
-		chDSN = "clickhouse://default:@localhost:9000/default"
-	}
+	chAddr := getEnv("CLICKHOUSE_ADDR", "localhost:9000")
 
 	chConn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: chDSN,
+		Addr: []string{chAddr},
 	})
 	if err != nil {
 		log.Fatalf("Failed to connect to ClickHouse: %v", err)
@@ -147,6 +164,16 @@ func main() {
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		log.Fatalf("Redis ping failed: %v", err)
 	}
+
+	// Start metrics server
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+		log.Println("Metrics server on :9093")
+		if err := http.ListenAndServe(":9093", nil); err != nil {
+			log.Printf("Metrics server error: %v", err)
+		}
+	}()
 
 	log.Println("Correlation engine started")
 
@@ -175,9 +202,12 @@ func main() {
 
 func runCorrelation(ctx context.Context, chConn clickhouse.Conn, rdb *redis.Client) {
 	for _, rule := range correlationRules {
+		start := time.Now()
+		correlationChecks.Inc()
 		if err := checkRule(ctx, chConn, rdb, rule); err != nil {
 			log.Printf("Error checking rule %s: %v", rule.Name, err)
 		}
+		correlationDuration.Observe(time.Since(start).Seconds())
 	}
 }
 
@@ -228,6 +258,7 @@ func checkRule(ctx context.Context, chConn clickhouse.Conn, rdb *redis.Client, r
 		})
 
 		log.Printf("Created incident: %s (severity: %s, risk: %d)", incident.IncidentID, incident.Severity, incident.RiskScore)
+		incidentsCreated.WithLabelValues(rule.Name, rule.Severity).Inc()
 	}
 
 	return nil

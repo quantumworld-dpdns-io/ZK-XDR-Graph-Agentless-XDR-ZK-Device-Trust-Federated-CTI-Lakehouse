@@ -5,13 +5,33 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
+
+var (
+	ddiEventsProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ddi_events_total", Help: "Total DDI events processed"},
+		[]string{"event_type", "severity"},
+	)
+	suspiciousDomains = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "ddi_suspicious_domains_total", Help: "Suspicious domains detected"},
+	)
+	dgaDomains = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "ddi_dga_domains_total", Help: "DGA domains detected"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(ddiEventsProcessed, suspiciousDomains, dgaDomains)
+}
 
 type DDIEvent struct {
 	Timestamp   string `json:"timestamp"`
@@ -147,6 +167,16 @@ func main() {
 		log.Fatalf("Redis connection failed: %v", err)
 	}
 
+	// Start metrics server
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+		log.Println("Metrics server on :9095")
+		if err := http.ListenAndServe(":9095", nil); err != nil {
+			log.Printf("Metrics server error: %v", err)
+		}
+	}()
+
 	log.Println("DDI connector started, consuming DNS events...")
 
 	sigCh := make(chan os.Signal, 1)
@@ -205,6 +235,12 @@ func generateDemoDDIEvents(ctx context.Context, rdb *redis.Client) {
 			Stream: "xdr:events",
 			Values: map[string]interface{}{"data": string(data)},
 		})
+		ddiEventsProcessed.WithLabelValues(normalized.EventType, normalized.Severity).Inc()
+		if normalized.EventType == "dns.query.suspicious" {
+			suspiciousDomains.Inc()
+		} else if normalized.EventType == "dns.query.dga" {
+			dgaDomains.Inc()
+		}
 		log.Printf("Published DDI event: %s (severity: %s)", normalized.EventType, normalized.Severity)
 	}
 }

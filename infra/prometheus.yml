@@ -10,12 +10,59 @@ scrape_configs:
   - job_name: 'api-gateway'
     static_configs:
       - targets: ['api-gateway:8080']
+    metrics_path: '/api/v1/metrics'
+
+  - job_name: 'risk-scoring'
+    static_configs:
+      - targets: ['risk-scoring:9091']
     metrics_path: '/metrics'
 
-  - job_name: 'redis'
+  - job_name: 'asset-graph'
     static_configs:
-      - targets: ['redis:6379']
+      - targets: ['asset-graph:9092']
+    metrics_path: '/metrics'
 
-  - job_name: 'postgres'
+  - job_name: 'correlation-engine'
     static_configs:
-      - targets: ['postgres:5432']
+      - targets: ['correlation-engine:9093']
+    metrics_path: '/metrics'
+
+  - job_name: 'soar-playbook'
+    static_configs:
+      - targets: ['soar-playbook:9094']
+    metrics_path: '/metrics'
+
+  - job_name: 'connector-ddi'
+    static_configs:
+      - targets: ['connector-ddi:9095']
+    metrics_path: '/metrics'
+
+  - job_name: 'connector-waf'
+    static_configs:
+      - targets: ['connector-waf:9096']
+    metrics_path: '/metrics'
+
+  - job_name: 'connector-mail'
+    static_configs:
+      - targets: ['connector-mail:9097']
+    metrics_path: '/metrics'
+
+  - job_name: 'cti-lakehouse'
+    static_configs:
+      - targets: ['cti-lakehouse:8095']
+    metrics_path: '/metrics'
+
+  - job_name: 'ioc-parsers'
+    static_configs:
+      - targets: ['ioc-parsers:8085']
+    metrics_path: '/metrics'
+
+  - job_name: 'anomaly-detection'
+    static_configs:
+      - targets: ['anomaly-detection:8086']
+    metrics_path: '/metrics'
+
+  - job_name: 'analyst-copilot'
+    static_configs:
+      - targets: ['analyst-copilot:8090']
+    metrics_path: '/metrics'

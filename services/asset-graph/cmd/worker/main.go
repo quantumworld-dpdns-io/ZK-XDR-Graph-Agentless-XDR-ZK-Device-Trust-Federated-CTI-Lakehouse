@@ -5,14 +5,36 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
+
+var (
+	graphEventsProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "asset_graph_events_total", Help: "Total events processed by graph builder"},
+		[]string{"source", "event_type"},
+	)
+	graphNodesCreated = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "asset_graph_nodes_created_total", Help: "Total graph nodes created"},
+		[]string{"node_type"},
+	)
+	graphEdgesCreated = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "asset_graph_edges_created_total", Help: "Total graph edges created"},
+		[]string{"edge_type"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(graphEventsProcessed, graphNodesCreated, graphEdgesCreated)
+}
 
 type GraphEvent struct {
 	EventID        string `json:"event_id"`
@@ -50,7 +72,7 @@ func main() {
 	defer driver.Close()
 
 	// Verify connectivity
-	if err := driver.VerifyConnectivity(ctx); err != nil {
+	if err := driver.VerifyConnectivity(); err != nil {
 		log.Fatalf("Neo4j connectivity failed: %v", err)
 	}
 	log.Println("Connected to Neo4j")
@@ -66,6 +88,16 @@ func main() {
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		log.Fatalf("Redis ping failed: %v", err)
 	}
+
+	// Start metrics server
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+		log.Println("Metrics server on :9092")
+		if err := http.ListenAndServe(":9092", nil); err != nil {
+			log.Printf("Metrics server error: %v", err)
+		}
+	}()
 
 	// Ensure consumer group
 	rdb.XGroupCreateMkStream(ctx, "xdr:events", "graph-builders", "0")
@@ -126,10 +158,11 @@ func processEvents(ctx context.Context, rdb *redis.Client, driver neo4j.Driver) 
 }
 
 func processEvent(ctx context.Context, driver neo4j.Driver, event GraphEvent) error {
+	graphEventsProcessed.WithLabelValues(event.Source, event.EventType).Inc()
 	session := driver.NewSession(neo4j.SessionConfig{DatabaseName: "neo4j"})
 	defer session.Close()
 
-	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+	_, err := session.WriteTransaction(func(tx neo4j.Transaction) (any, error) {
 		queries := []string{}
 
 		// 1. Upsert Asset node
@@ -226,10 +259,25 @@ func processEvent(ctx context.Context, driver neo4j.Driver, event GraphEvent) er
 
 		// Execute all queries
 		for _, q := range queries {
-			if _, err := tx.Run(ctx, q, nil); err != nil {
+			if _, err := tx.Run(q, nil); err != nil {
 				return nil, fmt.Errorf("query failed: %w\nQuery: %s", err, q)
 			}
 		}
+
+		// Track node/edge creation
+		if event.AssetID != "" {
+			graphNodesCreated.WithLabelValues("Asset").Inc()
+		}
+		if event.SourceIP != "" {
+			graphNodesCreated.WithLabelValues("IPAddress").Inc()
+		}
+		if event.Domain != "" {
+			graphNodesCreated.WithLabelValues("Domain").Inc()
+		}
+		if event.MitreTechnique != "" {
+			graphNodesCreated.WithLabelValues("MITRETechnique").Inc()
+		}
+		graphNodesCreated.WithLabelValues("Event").Inc()
 
 		return nil, nil
 	})

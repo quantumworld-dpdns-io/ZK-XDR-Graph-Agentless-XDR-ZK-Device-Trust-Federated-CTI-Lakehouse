@@ -5,13 +5,33 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
+
+var (
+	mailEventsProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "mail_events_total", Help: "Total mail events processed"},
+		[]string{"event_type", "severity"},
+	)
+	phishingDetected = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "mail_phishing_detected_total", Help: "Phishing emails detected"},
+	)
+	suspiciousAttachments = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "mail_suspicious_attachments_total", Help: "Suspicious attachments detected"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(mailEventsProcessed, phishingDetected, suspiciousAttachments)
+}
 
 type MailEvent struct {
 	Timestamp   string   `json:"timestamp"`
@@ -133,6 +153,16 @@ func main() {
 		log.Fatalf("Redis connection failed: %v", err)
 	}
 
+	// Start metrics server
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+		log.Println("Metrics server on :9097")
+		if err := http.ListenAndServe(":9097", nil); err != nil {
+			log.Printf("Metrics server error: %v", err)
+		}
+	}()
+
 	log.Println("Mail connector started, consuming email events...")
 
 	sigCh := make(chan os.Signal, 1)
@@ -184,6 +214,12 @@ func generateDemoMailEvents(ctx context.Context, rdb *redis.Client) {
 			Stream: "xdr:events",
 			Values: map[string]interface{}{"data": string(data)},
 		})
+		mailEventsProcessed.WithLabelValues(normalized.EventType, normalized.Severity).Inc()
+		if normalized.EventType == "email.phishing.detected" {
+			phishingDetected.Inc()
+		} else if normalized.EventType == "email.suspicious_attachment" {
+			suspiciousAttachments.Inc()
+		}
 		log.Printf("Published Mail event: %s (severity: %s)", normalized.EventType, normalized.Severity)
 	}
 }

@@ -5,13 +5,33 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
+
+var (
+	wafEventsProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "waf_events_total", Help: "Total WAF events processed"},
+		[]string{"event_type", "severity"},
+	)
+	rateLimitHits = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "waf_rate_limit_hits_total", Help: "Rate limit hits"},
+	)
+	authFailures = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "waf_auth_failures_total", Help: "Auth failures detected"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(wafEventsProcessed, rateLimitHits, authFailures)
+}
 
 type WAFEvent struct {
 	Timestamp    string `json:"timestamp"`
@@ -125,6 +145,16 @@ func main() {
 		log.Fatalf("Redis connection failed: %v", err)
 	}
 
+	// Start metrics server
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+		log.Println("Metrics server on :9096")
+		if err := http.ListenAndServe(":9096", nil); err != nil {
+			log.Printf("Metrics server error: %v", err)
+		}
+	}()
+
 	log.Println("WAF connector started, consuming HTTP events...")
 
 	sigCh := make(chan os.Signal, 1)
@@ -175,6 +205,12 @@ func generateDemoWAFEvents(ctx context.Context, rdb *redis.Client) {
 			Stream: "xdr:events",
 			Values: map[string]interface{}{"data": string(data)},
 		})
+		wafEventsProcessed.WithLabelValues(normalized.EventType, normalized.Severity).Inc()
+		if normalized.EventType == "waf.rate_limit.exceeded" {
+			rateLimitHits.Inc()
+		} else if normalized.EventType == "waf.auth.failure" {
+			authFailures.Inc()
+		}
 		log.Printf("Published WAF event: %s (severity: %s)", normalized.EventType, normalized.Severity)
 	}
 }

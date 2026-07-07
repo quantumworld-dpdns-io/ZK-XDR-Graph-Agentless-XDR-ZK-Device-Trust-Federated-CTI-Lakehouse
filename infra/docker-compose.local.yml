@@ -152,9 +152,11 @@ services:
     build:
       context: .
       dockerfile: services/risk-scoring/Dockerfile
+    ports:
+      - "9091:9091"
     environment:
       REDIS_ADDR: redis:6379
-      CLICKHOUSE_DSN: "clickhouse://default:@clickhouse:9000/default"
+      CLICKHOUSE_ADDR: clickhouse:9000
     depends_on:
       - redis
       - clickhouse
@@ -164,9 +166,11 @@ services:
     build:
       context: .
       dockerfile: services/correlation-engine/Dockerfile
+    ports:
+      - "9093:9093"
     environment:
       REDIS_ADDR: redis:6379
-      CLICKHOUSE_DSN: "clickhouse://default:@clickhouse:9000/default"
+      CLICKHOUSE_ADDR: clickhouse:9000
     depends_on:
       - redis
       - clickhouse
@@ -176,6 +180,8 @@ services:
     build:
       context: .
       dockerfile: services/soar-playbook/Dockerfile
+    ports:
+      - "9094:9094"
     environment:
       REDIS_ADDR: redis:6379
     depends_on:
@@ -186,6 +192,8 @@ services:
     build:
       context: .
       dockerfile: services/asset-graph/Dockerfile
+    ports:
+      - "9092:9092"
     environment:
       REDIS_ADDR: redis:6379
       NEO4J_URI: bolt://neo4j:7687
@@ -200,6 +208,8 @@ services:
     build:
       context: .
       dockerfile: services/connectors/ddi/Dockerfile
+    ports:
+      - "9095:9095"
     environment:
       REDIS_ADDR: redis:6379
     depends_on:
@@ -210,6 +220,8 @@ services:
     build:
       context: .
       dockerfile: services/connectors/waf/Dockerfile
+    ports:
+      - "9096:9096"
     environment:
       REDIS_ADDR: redis:6379
     depends_on:
@@ -220,6 +232,8 @@ services:
     build:
       context: .
       dockerfile: services/connectors/mail/Dockerfile
+    ports:
+      - "9097:9097"
     environment:
       REDIS_ADDR: redis:6379
     depends_on:

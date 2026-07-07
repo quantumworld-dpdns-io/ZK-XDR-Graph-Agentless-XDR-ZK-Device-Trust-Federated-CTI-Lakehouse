@@ -13,7 +13,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "rate(events_total[1m])",
+          "expr": "sum(rate(xdr_events_total[1m])) by (source)",
           "legendFormat": "{{source}}",
           "refId": "A"
         }
@@ -31,7 +31,7 @@
       "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
       "targets": [
         {
-          "expr": "sum by (severity) (events_total)",
+          "expr": "sum by (severity) (xdr_events_total)",
           "refId": "A"
         }
       ]
@@ -42,7 +42,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
       "targets": [
         {
-          "expr": "incidents_total{status=\"open\"}",
+          "expr": "sum(xdr_incidents_total)",
           "refId": "A"
         }
       ],
@@ -64,7 +64,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
       "targets": [
         {
-          "expr": "avg(asset_trust_score)",
+          "expr": "avg(xdr_asset_trust_score)",
           "refId": "A"
         }
       ],
@@ -88,8 +88,8 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "targets": [
         {
-          "expr": "rate(cti_matches_total[5m])",
-          "legendFormat": "{{source}}",
+          "expr": "sum(rate(xdr_cti_matches_total[5m])) by (ioc_type)",
+          "legendFormat": "{{ioc_type}}",
           "refId": "A"
         }
       ]
@@ -100,8 +100,113 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "targets": [
         {
-          "expr": "rate(http_requests_total[5m])",
-          "legendFormat": "{{service}} {{method}} {{path}}",
+          "expr": "sum(rate(xdr_http_requests_total[5m])) by (method, path)",
+          "legendFormat": "{{method}} {{path}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "DDI Suspicious Domains",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(ddi_suspicious_domains_total)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+        }
+      }
+    },
+    {
+      "title": "DGA Domains Detected",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(ddi_dga_domains_total)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+        }
+      }
+    },
+    {
+      "title": "WAF Rate Limit Hits",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(waf_rate_limit_hits_total)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Phishing Detected",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(mail_phishing_detected_total)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+        }
+      }
+    },
+    {
+      "title": "Playbook Executions",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(soar_playbook_executions_total)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Correlation Checks",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(correlation_engine_checks_total)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Risk Scoring Duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(risk_scoring_processing_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Graph Nodes Created",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "targets": [
+        {
+          "expr": "sum(rate(asset_graph_nodes_created_total[5m])) by (node_type)",
+          "legendFormat": "{{node_type}}",
           "refId": "A"
         }
       ]
