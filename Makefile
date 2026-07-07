@@ -1,4 +1,4 @@
-.PHONY: help up down build test lint demo-e2e clean setup build-all test-all
+.PHONY: help up down build test lint demo-e2e clean setup build-all test-all test-go test-robot test-rust verify-e2e
 
 # Default target
 help: ## Show this help
@@ -49,18 +49,44 @@ build-all: ## Build all Go services
 	cd services/connectors/mail && go build -o ../../../dist/connector-mail ./cmd/connector
 
 # Test
-test: test-api test-frontend ## Run all tests
+test: test-go test-frontend ## Run all tests
 
-test-api: ## Run Go API tests
+test-go: test-go-api test-go-risk test-go-correlation test-go-detection ## Run all Go unit tests
+
+test-go-api: ## Run Go API gateway tests
 	cd apps/api-gateway && go test ./... -race -cover -count=1
 
-test-frontend: ## Run frontend tests
-	cd apps/console-web && npm test
+test-go-risk: ## Run risk-scoring tests
+	cd services/risk-scoring && go test ./internal/scoring/ -race -count=1
+
+test-go-correlation: ## Run correlation-engine tests
+	cd services/correlation-engine && go test ./internal/rules/ -race -count=1
+
+test-go-detection: ## Run connector detection tests
+	cd services/connectors && go test ./detection/ -race -count=1
+
+test-robot: ## Run Robot Framework integration tests
+	bash scripts/run-robot-tests.sh
+
+test-robot-smoke: ## Run smoke tests only
+	bash scripts/run-robot-tests.sh smoke
+
+test-robot-e2e: ## Run E2E demo tests
+	bash scripts/run-robot-tests.sh e2e
+
+test-rust: ## Run Rust tests
+	cd services/ioc-parsers && cargo test
 
 test-noir: ## Run Noir circuit tests
 	cd circuits && nargo test
 
-test-all: test-api test-frontend test-noir ## Run all tests
+test-frontend: ## Run frontend tests
+	cd apps/console-web && npm test
+
+test-all: test-go test-robot test-rust test-noir test-frontend ## Run all tests
+
+verify-e2e: ## Verify end-to-end demo scenario
+	bash scripts/verify-e2e-demo.sh
 
 # Lint
 lint: lint-api lint-frontend ## Run all linters
