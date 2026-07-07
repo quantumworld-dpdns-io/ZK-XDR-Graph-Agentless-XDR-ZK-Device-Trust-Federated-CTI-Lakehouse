@@ -19,7 +19,7 @@ pub static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 pub static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?P<url>https?://[^\s<>\"']+)").unwrap()
+    Regex::new(r#"(?P<url>https?://[^\s<>\"']+)"#).unwrap()
 });
 
 pub static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
