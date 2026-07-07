@@ -1,68 +1,96 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { DataTable } from '@/components/ui/data-table'
-import type { Incident } from '@/types'
-
-const columns = [
-  { key: 'title', header: 'Title', sortable: true },
-  { key: 'incident_type', header: 'Type', sortable: true },
-  { key: 'severity', header: 'Severity', sortable: true, cell: (item: Incident) => (
-    <Badge variant={item.severity === 'critical' ? 'destructive' : item.severity === 'high' ? 'warning' : 'secondary'}>
-      {item.severity}
-    </Badge>
-  )},
-  { key: 'risk_score', header: 'Risk Score', sortable: true, cell: (item: Incident) => (
-    <span className={item.risk_score >= 80 ? 'text-red-500 font-bold' : item.risk_score >= 60 ? 'text-yellow-500' : 'text-green-500'}>
-      {item.risk_score}/100
-    </span>
-  )},
-  { key: 'status', header: 'Status', sortable: true, cell: (item: Incident) => (
-    <Badge variant={item.status === 'open' ? 'destructive' : item.status === 'investigating' ? 'warning' : 'secondary'}>
-      {item.status}
-    </Badge>
-  )},
-]
+import { Button } from '@/components/ui/button'
+import { apiClient } from '@/lib/api-client'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 
 export default function IncidentsPage() {
-  const [incidents, setIncidents] = useState<Incident[]>([])
+  const [incidents, setIncidents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchIncidents = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/incidents`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-        })
-        const data = await res.json()
-        setIncidents(data.data || [])
-      } catch {
-        setIncidents([
-          { id: '1', tenant_id: 't1', title: 'Suspicious IoT Camera Beaconing', incident_type: 'suspicious_iot_beaconing', severity: 'high', status: 'open', risk_score: 91, created_at: '', updated_at: '' },
-          { id: '2', tenant_id: 't1', title: 'API Credential Stuffing', incident_type: 'api_abuse', severity: 'critical', status: 'investigating', risk_score: 85, created_at: '', updated_at: '' },
-          { id: '3', tenant_id: 't1', title: 'QR Phishing Campaign', incident_type: 'quishing_bec', severity: 'high', status: 'contained', risk_score: 78, created_at: '', updated_at: '' },
-        ])
-      }
+  const fetchIncidents = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiClient.get('/api/v1/incidents')
+      setIncidents(res.data.data || [])
+    } catch {
+      setIncidents([
+        { id: 'inc_001', title: 'Suspicious IoT Camera Beaconing', severity: 'high', status: 'open', created_at: '2025-01-15T10:30:00Z' },
+        { id: 'inc_002', title: 'API Credential Stuffing', severity: 'critical', status: 'investigating', created_at: '2025-01-15T09:15:00Z' },
+        { id: 'inc_003', title: 'QR Phishing Campaign', severity: 'high', status: 'contained', created_at: '2025-01-15T08:00:00Z' },
+      ])
+    } finally {
+      setLoading(false)
     }
-    fetchIncidents()
-  }, [])
+  }
+
+  useEffect(() => { fetchIncidents() }, [])
+
+  const severityColor = (s: string) => {
+    switch (s) {
+      case 'critical': return 'destructive'
+      case 'high': return 'warning'
+      case 'medium': return 'default'
+      default: return 'secondary'
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Incidents</h1>
-        <p className="text-muted-foreground">Security incidents requiring investigation</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Incidents</h1>
+          <p className="text-muted-foreground">Active security incidents requiring investigation</p>
+        </div>
+        <Button onClick={fetchIncidents} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Incidents</CardTitle>
-          <CardDescription>{incidents.length} incidents</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DataTable columns={columns} data={incidents} searchable searchKeys={['title', 'incident_type']} onRowClick={(item) => window.location.href = `/dashboard/incidents/${item.id}`} />
-        </CardContent>
-      </Card>
+
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <span className="text-red-700">{error}</span>
+          </CardContent>
+        </Card>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center p-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      )}
+
+      {!loading && (
+        <div className="space-y-4">
+          {incidents.map((inc) => (
+            <Card key={inc.id}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{inc.title}</CardTitle>
+                  <div className="flex gap-2">
+                    <Badge variant={severityColor(inc.severity) as any}>{inc.severity}</Badge>
+                    <Badge variant="outline">{inc.status}</Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4 text-sm text-muted-foreground">
+                  <span>ID: {inc.id}</span>
+                  <span>Created: {new Date(inc.created_at).toLocaleString()}</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,0 +1,74 @@
+groups:
+  - name: xdr-alerts
+    rules:
+      - alert: HighIncidentRate
+        expr: sum(rate(xdr_incidents_total[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High incident creation rate"
+          description: "More than 0.5 incidents per second for 5 minutes"
+
+      - alert: LowAssetTrustScore
+        expr: avg(xdr_asset_trust_score) < 50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Average asset trust score is low"
+          description: "Average trust score is {{ $value }} (below 50)"
+
+      - alert: SuspiciousDomainsDetected
+        expr: increase(ddi_suspicious_domains_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: "Multiple suspicious domains detected"
+          description: "{{ $value }} suspicious domains in 5 minutes"
+
+      - alert: DGADomainsDetected
+        expr: increase(ddi_dga_domains_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DGA domain activity detected"
+          description: "{{ $value }} DGA domains in 5 minutes"
+
+      - alert: PhishingCampaignDetected
+        expr: increase(mail_phishing_detected_total[5m]) > 3
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Phishing campaign detected"
+          description: "{{ $value }} phishing emails in 5 minutes"
+
+      - alert: WAFRateLimitSpike
+        expr: increase(waf_rate_limit_hits_total[5m]) > 20
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "WAF rate limit spike"
+          description: "{{ $value }} rate limit hits in 5 minutes"
+
+      - alert: PlaybookExecutionFailure
+        expr: sum(rate(soar_playbook_executions_total{status="failed"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Playbook executions failing"
+          description: "Playbook failure rate exceeds 0.1/s"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute"
