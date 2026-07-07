@@ -1,0 +1,14 @@
+[package]
+name = "ioc-parsers"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+regex = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+redis = { version = "0.25", features = ["tokio-comp"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"

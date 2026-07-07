@@ -237,6 +237,14 @@ services:
     depends_on:
       - redis
 
+  # IoC Parsers - Rust-based IoC extraction from raw text
+  ioc-parsers:
+    build:
+      context: .
+      dockerfile: services/ioc-parsers/Dockerfile
+    ports:
+      - "8085:8085"
+
   # Analyst Copilot - Python RAG/LLM service
   analyst-copilot:
     build:
