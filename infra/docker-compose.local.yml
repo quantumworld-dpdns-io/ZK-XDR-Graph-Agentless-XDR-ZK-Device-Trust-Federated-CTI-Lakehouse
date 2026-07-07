@@ -40,7 +40,7 @@ services:
       - "7687:7687"
     volumes:
       - neo4j_data:/data
-      - ./infra/neo4j/init.cypher:/data/init.cypher
+      - ./neo4j/init.cypher:/data/init.cypher
 
   # ClickHouse - Hot analytics for security events
   clickhouse:
@@ -50,7 +50,7 @@ services:
       - "9000:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
-      - ./infra/clickhouse/migrations:/docker-entrypoint-initdb.d
+      - ./clickhouse/migrations:/docker-entrypoint-initdb.d
 
   # MinIO - Object storage for evidence and CTI bundles
   minio:
