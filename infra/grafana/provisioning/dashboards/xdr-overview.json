@@ -1,0 +1,118 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Events Ingested (per minute)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(events_total[1m])",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "title": "Events by Severity",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (severity) (events_total)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Active Incidents",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "expr": "incidents_total{status=\"open\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Avg Trust Score",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
+      "targets": [
+        {
+          "expr": "avg(asset_trust_score)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 40 },
+              { "color": "green", "value": 70 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "IoC Matches",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(cti_matches_total[5m])",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Service Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[5m])",
+          "legendFormat": "{{service}} {{method}} {{path}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["xdr", "security"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "ZK-XDR Graph Overview",
+  "uid": "xdr-overview",
+  "version": 1
+}

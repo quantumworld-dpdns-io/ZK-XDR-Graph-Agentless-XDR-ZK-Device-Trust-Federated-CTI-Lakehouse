@@ -285,8 +285,11 @@ services:
       - "3001:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/xdr-overview.json
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning
+      - ./infra/grafana/provisioning/dashboards:/var/lib/grafana/dashboards
 
   # Prometheus - Metrics collection
   prometheus:
