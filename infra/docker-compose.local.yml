@@ -137,6 +137,16 @@ services:
     depends_on:
       - api-gateway
 
+  # Event Normalizer - Normalizes raw events to XDR envelope
+  event-normalizer:
+    build:
+      context: .
+      dockerfile: services/event-normalizer/Dockerfile
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - redis
+
   # Risk Scoring - Computes asset trust scores from events
   risk-scoring:
     build:

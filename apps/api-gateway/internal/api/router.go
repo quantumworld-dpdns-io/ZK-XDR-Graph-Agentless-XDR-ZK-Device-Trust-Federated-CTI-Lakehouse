@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
@@ -30,6 +31,7 @@ func NewRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *chi.Mux {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthH.Health)
+		r.Handle("/metrics", promhttp.Handler())
 
 		r.Post("/auth/login", authH.Login)
 		r.Post("/auth/register", authH.Register)
