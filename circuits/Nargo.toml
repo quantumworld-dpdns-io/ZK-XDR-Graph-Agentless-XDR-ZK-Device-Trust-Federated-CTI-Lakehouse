@@ -1,0 +1,7 @@
+[package]
+name = "zk_xdr_device_trust"
+type = "package"
+authors = ["ZK-XDR Graph Team"]
+compiler_version = ">=0.30.0"
+
+[dependencies]
