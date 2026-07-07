@@ -1,6 +1,6 @@
 module github.com/quantumworld-dpdns-io/zk-xdr-graph-platform/apps/api-gateway
 
-go 1.26.1
+go 1.25.0
 
 require (
 	github.com/go-chi/chi/v5 v5.3.1
