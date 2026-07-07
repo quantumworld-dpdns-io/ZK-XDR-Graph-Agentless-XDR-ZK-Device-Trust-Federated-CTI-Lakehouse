@@ -163,35 +163,53 @@ open http://localhost:8080    # API Gateway
 
 ## API Reference
 
+Full OpenAPI 3.0 specification: [`docs/openapi.yaml`](docs/openapi.yaml) (25+ endpoints)
+
 ```bash
-# Assets
-GET  /api/v1/assets              # List all assets
-POST /api/v1/assets              # Create asset
+# Authentication
+POST /api/v1/auth/login              # Get JWT token
+POST /api/v1/auth/register           # Create account
 
-# Events
-POST /api/v1/events/ingest       # Ingest XDR event
+# Assets (5 endpoints)
+GET  /api/v1/assets                  # List assets
+POST /api/v1/assets                  # Create asset
+GET  /api/v1/assets/:id              # Get asset
+PUT  /api/v1/assets/:id              # Update asset
+DELETE /api/v1/assets/:id            # Soft-delete asset
 
-# Incidents
-GET  /api/v1/incidents           # List incidents
-POST /api/v1/incidents           # Create incident
+# Events (3 endpoints)
+POST /api/v1/events/ingest           # Ingest XDR event
+GET  /api/v1/events                  # List events
+GET  /api/v1/events/:id              # Get event
 
-# CTI
-GET  /api/v1/cti/indicators      # List IoC indicators
-POST /api/v1/cti/indicators      # Create IoC indicator
-POST /api/v1/cti/lookup          # Lookup indicator
+# Incidents (5 endpoints)
+GET  /api/v1/incidents               # List incidents
+POST /api/v1/incidents               # Create incident
+GET  /api/v1/incidents/:id           # Get incident
+POST /api/v1/incidents/:id/assign    # Assign analyst
+POST /api/v1/incidents/:id/close     # Mark resolved
 
-# Playbooks
-GET  /api/v1/playbooks           # List playbooks
-POST /api/v1/playbooks/:id/dry-run  # Dry-run playbook
-POST /api/v1/playbooks/:id/execute  # Execute playbook
+# CTI (3 endpoints)
+GET  /api/v1/cti/indicators          # List IoC indicators
+POST /api/v1/cti/indicators          # Create IoC indicator
+POST /api/v1/cti/lookup              # Search indicators
 
-# ZK Proofs
-POST /api/v1/zk/proofs           # Submit ZK proof
-GET  /api/v1/zk/proofs           # List proofs
+# Playbooks (3 endpoints)
+GET  /api/v1/playbooks               # List playbooks
+POST /api/v1/playbooks/:id/dry-run   # Preview actions
+POST /api/v1/playbooks/:id/execute   # Execute playbook
+
+# ZK Proofs (2 endpoints)
+POST /api/v1/proofs/generate         # Generate attestation proof
+POST /api/v1/proofs/verify           # Verify ZK proof
+
+# AI Copilot (2 endpoints)
+POST /api/v1/copilot/summarize-incident   # LLM incident summary
+POST /api/v1/copilot/recommend-playbook   # LLM playbook recommendation
 
 # Observability
-GET  /api/v1/health              # Health check
-GET  /api/v1/metrics             # Prometheus metrics
+GET  /api/v1/health                  # Health check
+GET  /api/v1/metrics                 # Prometheus metrics
 ```
 
 ## ZK Circuits
@@ -231,6 +249,10 @@ circuits/
 
 ```bash
 make test           # Run all tests
+make test-go        # Go unit tests only
+make test-robot-smoke  # Robot Framework smoke tests
+make test-robot-e2e    # Robot Framework E2E tests
+make test-rust      # Rust unit tests
 make lint           # Run linters
 make build          # Build all services
 make build-all      # Build including eBPF and ZK circuits
@@ -238,6 +260,15 @@ make health         # Check all service health
 make status         # Docker Compose status
 make logs           # Tail all service logs
 ```
+
+## Testing
+
+| Test Type | Framework | Count | Description |
+|-----------|-----------|-------|-------------|
+| Go Unit Tests | `testing` | 18 | Scoring, correlation rules, detection functions |
+| Rust Unit Tests | `cargo test` | 5 | IoC regex extraction (IP, domain, CVE, hash) |
+| Integration | Robot Framework | 7 suites | API health, CRUD, pipeline, auth, negative, E2E demo |
+| E2E Demo | Shell script | 10 steps | Full attack simulation verification |
 
 ## Project Structure
 
@@ -268,7 +299,8 @@ zk-xdr-graph/
 └── docs/
     ├── ARCHITECTURE.md       # System architecture
     ├── QUICKSTART.md         # Setup guide
-    └── CASE_STUDY.md         # Technical case study
+    ├── CASE_STUDY.md         # Technical case study
+    └── openapi.yaml          # OpenAPI 3.0 specification (25+ endpoints)
 ```
 
 ## Technical Deep Dive

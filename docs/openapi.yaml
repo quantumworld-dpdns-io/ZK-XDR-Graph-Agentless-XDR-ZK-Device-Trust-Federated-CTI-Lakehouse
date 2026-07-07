@@ -1,0 +1,1322 @@
+openapi: "3.0.3"
+info:
+  title: ZK-XDR Graph Platform API
+  description: |
+    Unified XDR (Extended Detection and Response) platform combining agentless security
+    monitoring, Zero-Knowledge device trust, federated threat intelligence, and SOAR playbooks.
+
+    ## Architecture
+    - **Event Pipeline**: Redis Streams → Normalizer → Correlation → Incidents
+    - **Device Trust**: ZK-Proof attestation via Noir circuits + Julia anomaly detection
+    - **CTI Lakehouse**: Federated IoC matching across MinIO/S3 + Qdrant vector search
+    - **SOAR Engine**: Playbook execution with approval workflows
+
+    ## Authentication
+    All endpoints (except `/auth` and `/health`) require a Bearer JWT token:
+    ```
+    Authorization: Bearer <token>
+    ```
+    Obtain a token via `POST /api/v1/auth/login`.
+  version: "0.1.0"
+  contact:
+    name: ZK-XDR Platform
+    url: https://github.com/quantumworld-dpdns-io/zk-xdr-graph-platform
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+tags:
+  - name: Health
+    description: Service health and readiness checks
+  - name: Auth
+    description: User registration and JWT authentication
+  - name: Assets
+    description: Asset inventory management with trust scores
+  - name: Events
+    description: Security event ingestion and querying
+  - name: Incidents
+    description: Incident lifecycle management
+  - name: CTI
+    description: Threat intelligence indicators (IoCs)
+  - name: Playbooks
+    description: SOAR playbook orchestration
+  - name: ZK Proofs
+    description: Zero-Knowledge device attestation
+  - name: Copilot
+    description: AI-powered analyst copilot (LLM integration)
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Service health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: loginUser
+      summary: Authenticate user and return JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: registerUser
+      summary: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /assets:
+    get:
+      tags: [Assets]
+      operationId: listAssets
+      summary: List all assets for the tenant
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Asset list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Asset"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Assets]
+      operationId: createAsset
+      summary: Register a new asset
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetRequest"
+      responses:
+        "201":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /assets/{id}:
+    get:
+      tags: [Assets]
+      operationId: getAsset
+      summary: Get asset by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: Asset details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Assets]
+      operationId: updateAsset
+      summary: Update asset fields
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetRequest"
+      responses:
+        "200":
+          description: Asset updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    delete:
+      tags: [Assets]
+      operationId: deleteAsset
+      summary: Soft-delete an asset
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: Asset deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /events/ingest:
+    post:
+      tags: [Events]
+      operationId: ingestEvent
+      summary: Ingest a single security event
+      description: |
+        Pushes a normalized security event into the pipeline.
+        The event flows through: Redis Streams → Normalizer → Correlation Engine → Incident creation.
+        Automatically assigns `event_id` if not provided, and tags with `schema_version: xdr-event-v0.1`.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestEventRequest"
+      responses:
+        "201":
+          description: Event ingested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /events:
+    get:
+      tags: [Events]
+      operationId: listEvents
+      summary: List security events (newest first)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [info, low, medium, high, critical]
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [ddi, waf, mail, zk, ioc, manual]
+      responses:
+        "200":
+          description: Event list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SecurityEvent"
+
+  /events/{id}:
+    get:
+      tags: [Events]
+      operationId: getEvent
+      summary: Get event by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityEvent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /incidents:
+    get:
+      tags: [Incidents]
+      operationId: listIncidents
+      summary: List incidents (newest first)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, investigating, contained, closed]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high, critical]
+      responses:
+        "200":
+          description: Incident list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Incident"
+    post:
+      tags: [Incidents]
+      operationId: createIncident
+      summary: Manually create an incident
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIncidentRequest"
+      responses:
+        "201":
+          description: Incident created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+
+  /incidents/{id}:
+    get:
+      tags: [Incidents]
+      operationId: getIncident
+      summary: Get incident by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Incident details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /incidents/{id}/assign:
+    post:
+      tags: [Incidents]
+      operationId: assignIncident
+      summary: Assign incident to an analyst
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assigned_to]
+              properties:
+                assigned_to:
+                  type: string
+                  format: uuid
+                  description: User UUID of the analyst
+      responses:
+        "200":
+          description: Incident assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /incidents/{id}/close:
+    post:
+      tags: [Incidents]
+      operationId: closeIncident
+      summary: Mark incident as resolved
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Incident closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /cti/indicators:
+    get:
+      tags: [CTI]
+      operationId: listCTIIndicators
+      summary: List active IoC indicators
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [ip, domain, url, hash, email, cve]
+        - name: tlp
+          in: query
+          schema:
+            type: string
+            enum: [white, green, amber, red]
+      responses:
+        "200":
+          description: Indicator list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CTIIndicator"
+    post:
+      tags: [CTI]
+      operationId: createCTIIndicator
+      summary: Add a new IoC indicator
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCTIIndicatorRequest"
+      responses:
+        "201":
+          description: Indicator created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CTIIndicator"
+
+  /cti/lookup:
+    post:
+      tags: [CTI]
+      operationId: lookupCTI
+      summary: Search IoC indicators by value/type
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  type: string
+                  description: IoC value to search (ILIKE partial match)
+                type:
+                  type: string
+                  enum: [ip, domain, url, hash, email, cve]
+      responses:
+        "200":
+          description: Matching indicators
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CTIIndicator"
+
+  /playbooks:
+    get:
+      tags: [Playbooks]
+      operationId: listPlaybooks
+      summary: List active SOAR playbooks
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Playbook list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Playbook"
+
+  /playbooks/{id}/dry-run:
+    post:
+      tags: [Playbooks]
+      operationId: dryRunPlaybook
+      summary: Preview playbook actions without executing
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Dry-run results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DryRunResponse"
+
+  /playbooks/{id}/execute:
+    post:
+      tags: [Playbooks]
+      operationId: executePlaybook
+      summary: Execute a SOAR playbook
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Execution started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutePlaybookResponse"
+
+  /proofs/generate:
+    post:
+      tags: [ZK Proofs]
+      operationId: generateProof
+      summary: Generate a ZK attestation proof for an asset
+      description: |
+        Generates a zero-knowledge proof that attests to an asset's compliance state
+        without revealing sensitive device details. Supports circuits:
+        - `device_identity`: Proves device identity without revealing secrets
+        - `compliance_proof`: Proves compliance status without revealing config
+        - `attestation_proof`: Proves firmware/software attestation
+        - `trust_score`: Proves trust score threshold without revealing raw data
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [asset_id, circuit_type]
+              properties:
+                asset_id:
+                  type: string
+                  format: uuid
+                circuit_type:
+                  type: string
+                  enum: [device_identity, compliance_proof, attestation_proof, trust_score]
+      responses:
+        "201":
+          description: Proof generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZKProof"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /proofs/verify:
+    post:
+      tags: [ZK Proofs]
+      operationId: verifyProof
+      summary: Verify a previously generated ZK proof
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [proof_id]
+              properties:
+                proof_id:
+                  type: string
+      responses:
+        "200":
+          description: Proof verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyProofResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /copilot/summarize-incident:
+    post:
+      tags: [Copilot]
+      operationId: summarizeIncident
+      summary: AI-generated incident summary (LLM-powered)
+      description: |
+        Sends incident context to the Analyst Copilot service for LLM-powered summarization.
+        Returns a natural language summary with key indicators, timeline, and recommended actions.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [incident_id]
+              properties:
+                incident_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Summary generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CopilotResponse"
+
+  /copilot/recommend-playbook:
+    post:
+      tags: [Copilot]
+      operationId: recommendPlaybook
+      summary: AI-recommended playbooks for an incident (LLM-powered)
+      description: |
+        Analyzes incident characteristics and recommends the most appropriate SOAR playbook.
+        Returns playbook ID, confidence score, and reasoning.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [incident_id]
+              properties:
+                incident_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Recommendation generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CopilotResponse"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    AssetId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid JWT token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        version:
+          type: string
+          example: 0.1.0
+        uptime:
+          type: string
+        database:
+          type: string
+          example: connected
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT bearer token
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+            role:
+              type: string
+              example: analyst
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    PaginatedResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+
+    CreateAssetRequest:
+      type: object
+      required: [name, asset_type]
+      properties:
+        name:
+          type: string
+          example: "Web Server 01"
+        asset_type:
+          type: string
+          enum: [server, workstation, iot, cloud, network]
+        serial_number:
+          type: string
+        manufacturer:
+          type: string
+        model:
+          type: string
+        firmware_version:
+          type: string
+        os:
+          type: string
+        ip_addresses:
+          type: array
+          items:
+            type: string
+        mac_address:
+          type: string
+        network_segment:
+          type: string
+        criticality:
+          type: string
+          enum: [low, medium, high, critical]
+          default: medium
+        metadata:
+          type: object
+
+    UpdateAssetRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [active, quarantine, decommissioned]
+        criticality:
+          type: string
+          enum: [low, medium, high, critical]
+        trust_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        metadata:
+          type: object
+
+    Asset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        asset_type:
+          type: string
+        serial_number:
+          type: string
+        manufacturer:
+          type: string
+        model:
+          type: string
+        firmware_version:
+          type: string
+        os:
+          type: string
+        ip_addresses:
+          type: array
+          items:
+            type: string
+        mac_address:
+          type: string
+        network_segment:
+          type: string
+        criticality:
+          type: string
+        status:
+          type: string
+        trust_score:
+          type: number
+          format: float
+        last_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    IngestEventRequest:
+      type: object
+      required: [source, event_type, severity]
+      properties:
+        event_id:
+          type: string
+          description: Optional custom event ID (auto-generated if empty)
+        source:
+          type: string
+          enum: [ddi, waf, mail, zk, ioc, manual]
+          description: Event source connector
+        event_type:
+          type: string
+          example: "dns.query.suspicious"
+          description: Dot-notation event type
+        severity:
+          type: string
+          enum: [info, low, medium, high, critical]
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Detection confidence percentage
+        risk_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1000
+        source_ip:
+          type: string
+        domain:
+          type: string
+        asset_id:
+          type: string
+          format: uuid
+          nullable: true
+        asset_name:
+          type: string
+          nullable: true
+        asset_type:
+          type: string
+          nullable: true
+        tenant_id:
+          type: string
+          description: Auto-set from JWT if omitted
+
+    SecurityEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+        source:
+          type: string
+        event_type:
+          type: string
+        severity:
+          type: string
+        asset_id:
+          type: string
+          format: uuid
+          nullable: true
+        observed_at:
+          type: string
+          format: date-time
+        risk_score:
+          type: number
+          format: float
+        risk_factors:
+          type: object
+          nullable: true
+        collector:
+          type: string
+        pipeline:
+          type: string
+        schema_version:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    CreateIncidentRequest:
+      type: object
+      required: [title, incident_type, severity]
+      properties:
+        title:
+          type: string
+          example: "Credential stuffing detected"
+        description:
+          type: string
+        incident_type:
+          type: string
+          enum: [malware, phishing, ddos, unauthorized_access, data_exfiltration, credential_stuffing, dga, dns_beaconing]
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        risk_score:
+          type: number
+          format: float
+        evidence:
+          type: object
+          description: JSON blob of evidence artifacts
+        mitre_tactics:
+          type: array
+          items:
+            type: string
+          example: ["TA0001", "TA0006"]
+        mitre_techniques:
+          type: array
+          items:
+            type: string
+          example: ["T1110", "T1078"]
+
+    Incident:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        incident_type:
+          type: string
+        severity:
+          type: string
+        status:
+          type: string
+          enum: [open, investigating, contained, closed]
+        risk_score:
+          type: number
+          format: float
+        evidence:
+          type: object
+          nullable: true
+        assigned_to:
+          type: string
+          format: uuid
+          nullable: true
+        assigned_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        mitre_tactics:
+          type: array
+          items:
+            type: string
+        mitre_techniques:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateCTIIndicatorRequest:
+      type: object
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          enum: [ip, domain, url, hash, email, cve]
+        value:
+          type: string
+          example: "203.0.113.50"
+        threat:
+          type: string
+          description: Threat description
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+        source:
+          type: string
+        tlp:
+          type: string
+          enum: [white, green, amber, red]
+          default: amber
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        mitre_tactics:
+          type: array
+          items:
+            type: string
+
+    CTIIndicator:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+          nullable: true
+        indicator_id:
+          type: string
+        type:
+          type: string
+        value:
+          type: string
+        confidence:
+          type: integer
+        source:
+          type: string
+        tlp:
+          type: string
+        first_seen:
+          type: string
+          format: date-time
+          nullable: true
+        last_seen:
+          type: string
+          format: date-time
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    Playbook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "device_quarantine"
+        description:
+          type: string
+        version:
+          type: string
+          example: "1.0.0"
+        trigger_type:
+          type: string
+          example: "zk_attestation_failure"
+        trigger_config:
+          type: object
+        conditions:
+          type: array
+          items:
+            type: object
+        actions:
+          type: array
+          items:
+            type: object
+        approval:
+          type: object
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    DryRunResponse:
+      type: object
+      properties:
+        playbook_id:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          example: dry-run
+        would_execute:
+          type: array
+          items:
+            type: object
+        status:
+          type: string
+          example: dry-run-complete
+
+    ExecutePlaybookResponse:
+      type: object
+      properties:
+        playbook_id:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          example: execute
+        status:
+          type: string
+          example: execution-started
+        execution_id:
+          type: string
+          example: "exec_a1b2c3d4e5f6"
+
+    ZKProof:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        asset_id:
+          type: string
+          format: uuid
+        proof_id:
+          type: string
+        proof_system:
+          type: string
+          example: risc0
+        circuit_type:
+          type: string
+          enum: [device_identity, compliance_proof, attestation_proof, trust_score]
+        status:
+          type: string
+          enum: [pending, generated, verified, failed]
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        trust_score_delta:
+          type: number
+          format: float
+        created_at:
+          type: string
+          format: date-time
+
+    VerifyProofResponse:
+      type: object
+      properties:
+        proof_id:
+          type: string
+        is_valid:
+          type: boolean
+        status:
+          type: string
+          example: verified
+        verified_at:
+          type: string
+          format: date-time
+
+    CopilotResponse:
+      type: object
+      properties:
+        summary:
+          type: string
+        status:
+          type: string
+          example: stub
+        recommendation:
+          type: string
+          description: (only for recommend-playbook)
