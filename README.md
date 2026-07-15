@@ -328,3 +328,7 @@ Formal playbook definitions in `playbooks/`:
 ## License
 
 Apache-2.0
+
+
+---
+Julia language: [#JuliaLang](https://julialang.org/) | [JuliaLang GitHub](https://github.com/JuliaLang/julia)
